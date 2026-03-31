@@ -1,6 +1,7 @@
 package com.amlet.callblocker.ui.screens
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +24,19 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
+// ── Definizione tab ───────────────────────────────────────────────────────────
+
+private enum class SettingsTab(
+    val label: String,
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+) {
+    PROTEZIONE("Protezione", Icons.Rounded.Shield),
+    BACKUP("Backup", Icons.Rounded.Backup),
+    INFO("Info", Icons.Rounded.Info)
+}
+
+// ── Screen principale ─────────────────────────────────────────────────────────
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -31,31 +45,7 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    val prefs = remember { AppPreferences(context) }
-
-    var notifyOnBlock by remember { mutableStateOf(prefs.notifyOnBlock) }
-    var suspendUntil by remember { mutableStateOf(prefs.suspendUntil) }
-    var showSuspendDialog by remember { mutableStateOf(false) }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri -> uri?.let { onExportBackup(context, it) } }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { onImportBackup(context, it) } }
-
-    if (showSuspendDialog) {
-        SuspendDialog(
-            onDismiss = { showSuspendDialog = false },
-            onConfirm = { durationMs ->
-                val until = System.currentTimeMillis() + durationMs
-                prefs.suspendUntil = until
-                suspendUntil = until
-                showSuspendDialog = false
-            }
-        )
-    }
+    var selectedTab by remember { mutableStateOf(SettingsTab.PROTEZIONE) }
 
     Scaffold(
         topBar = {
@@ -77,255 +67,369 @@ fun SettingsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
-            // ── Protezione ───────────────────────────────────────────────────
-            SectionHeader("Protezione")
-
-            val isSuspended = suspendUntil > System.currentTimeMillis()
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSuspended)
-                        MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-                    else
-                        MaterialTheme.colorScheme.surface
-                )
+            // ── Tab bar ───────────────────────────────────────────────────────
+            TabRow(
+                selectedTabIndex = selectedTab.ordinal,
+                containerColor = MaterialTheme.colorScheme.background,
+                contentColor = MaterialTheme.colorScheme.primary,
+                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            Icons.Rounded.PauseCircle,
-                            contentDescription = null,
-                            tint = if (isSuspended)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "Sospendi protezione",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = if (isSuspended)
-                                    MaterialTheme.colorScheme.error
-                                else
-                                    MaterialTheme.colorScheme.onSurface
+                SettingsTab.entries.forEach { tab ->
+                    Tab(
+                        selected = selectedTab == tab,
+                        onClick = { selectedTab = tab },
+                        icon = {
+                            Icon(
+                                imageVector = tab.icon,
+                                contentDescription = tab.label,
+                                modifier = Modifier.size(18.dp)
                             )
+                        },
+                        text = {
                             Text(
-                                text = if (isSuspended)
-                                    "Attiva fino a: ${formatTime(suspendUntil)}"
-                                else
-                                    "Consenti tutte le chiamate per un periodo",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                text = tab.label,
+                                style = MaterialTheme.typography.labelMedium
                             )
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (isSuspended) {
-                            Button(
-                                onClick = {
-                                    prefs.cancelSuspend()
-                                    suspendUntil = 0L
-                                },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = MaterialTheme.colorScheme.error
-                                ),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Rounded.PlayArrow,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Riattiva ora")
-                            }
-                        } else {
-                            listOf(
-                                "1h" to TimeUnit.HOURS.toMillis(1),
-                                "3h" to TimeUnit.HOURS.toMillis(3),
-                                "24h" to TimeUnit.HOURS.toMillis(24)
-                            ).forEach { (label, ms) ->
-                                OutlinedButton(
-                                    onClick = {
-                                        val until = System.currentTimeMillis() + ms
-                                        prefs.suspendUntil = until
-                                        suspendUntil = until
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Text(label)
-                                }
-                            }
-                            OutlinedButton(
-                                onClick = { showSuspendDialog = true },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Schedule,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-                    }
+                    )
                 }
             }
 
-            // ── Notifiche ────────────────────────────────────────────────────
-            SectionHeader("Notifiche")
+            // ── Contenuto tab ─────────────────────────────────────────────────
+            when (selectedTab) {
+                SettingsTab.PROTEZIONE -> ProtezioneTab(context)
+                SettingsTab.BACKUP     -> BackupTab(context, onExportBackup, onImportBackup)
+                SettingsTab.INFO       -> InfoTab(context)
+            }
+        }
+    }
+}
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
+// ── Tab: Protezione ───────────────────────────────────────────────────────────
+
+@Composable
+private fun ProtezioneTab(context: Context) {
+    val prefs = remember { AppPreferences(context) }
+    var notifyOnBlock by remember { mutableStateOf(prefs.notifyOnBlock) }
+    var suspendUntil by remember { mutableStateOf(prefs.suspendUntil) }
+    var showSuspendDialog by remember { mutableStateOf(false) }
+
+    if (showSuspendDialog) {
+        SuspendDialog(
+            onDismiss = { showSuspendDialog = false },
+            onConfirm = { durationMs ->
+                val until = System.currentTimeMillis() + durationMs
+                prefs.suspendUntil = until
+                suspendUntil = until
+                showSuspendDialog = false
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val isSuspended = suspendUntil > System.currentTimeMillis()
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSuspended)
+                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                else
+                    MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Rounded.Notifications,
+                        Icons.Rounded.PauseCircle,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = if (isSuspended)
+                            MaterialTheme.colorScheme.error
+                        else
+                            MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Notifica chiamate bloccate",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            text = "Ricevi una notifica ogni volta che una chiamata viene bloccata",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = notifyOnBlock,
-                        onCheckedChange = { checked ->
-                            prefs.notifyOnBlock = checked
-                            notifyOnBlock = checked
-                        }
-                    )
-                }
-            }
-
-            // ── Backup ───────────────────────────────────────────────────────
-            SectionHeader("Backup e ripristino")
-
-            SettingsCard(
-                icon = Icons.Rounded.Upload,
-                title = "Esporta whitelist",
-                subtitle = "Salva i tuoi contatti consentiti in un file JSON",
-                onClick = { exportLauncher.launch("callblocker_backup.json") }
-            )
-
-            SettingsCard(
-                icon = Icons.Rounded.Download,
-                title = "Importa whitelist",
-                subtitle = "Ripristina contatti da un file di backup JSON.\nAttenzione: sovrascriverà la lista attuale.",
-                onClick = { importLauncher.launch(arrayOf("application/json")) },
-                isDestructive = true
-            )
-
-            // ── Informazioni ─────────────────────────────────────────────────
-            SectionHeader("Informazioni")
-
-            SettingsCard(
-                icon = Icons.Rounded.Info,
-                title = "Versione",
-                subtitle = "1.0.0",
-                onClick = {}
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(modifier = Modifier.padding(16.dp)) {
-                    Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            "Come funziona",
+                            text = "Sospendi protezione",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            color = if (isSuspended)
+                                MaterialTheme.colorScheme.error
+                            else
+                                MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            "CallBlocker usa il CallScreeningService di Android. " +
-                                    "Nessun dato viene inviato a server esterni. " +
-                                    "Tutto rimane sul tuo dispositivo.",
+                            text = if (isSuspended)
+                                "Attiva fino a: ${formatTime(suspendUntil)}"
+                            else
+                                "Consenti tutte le chiamate per un periodo",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-            }
-
-            // ── Crediti ──────────────────────────────────────────────────────
-            SectionHeader("Crediti")
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
+                Spacer(modifier = Modifier.height(12.dp))
                 Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        Icons.Rounded.Favorite,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Column {
-                        Text(
-                            text = "App sviluppata da Amlet",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Fatto con cura per proteggere la tua privacy",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    if (isSuspended) {
+                        Button(
+                            onClick = {
+                                prefs.cancelSuspend()
+                                suspendUntil = 0L
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Riattiva ora")
+                        }
+                    } else {
+                        listOf(
+                            "1h" to TimeUnit.HOURS.toMillis(1),
+                            "3h" to TimeUnit.HOURS.toMillis(3),
+                            "24h" to TimeUnit.HOURS.toMillis(24)
+                        ).forEach { (label, ms) ->
+                            OutlinedButton(
+                                onClick = {
+                                    val until = System.currentTimeMillis() + ms
+                                    prefs.suspendUntil = until
+                                    suspendUntil = until
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text(label) }
+                        }
+                        OutlinedButton(
+                            onClick = { showSuspendDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Rounded.Schedule, null, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
         }
+
+        // Notifica chiamate bloccate
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.Notifications, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Notifica chiamate bloccate", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Ricevi una notifica ogni volta che una chiamata viene bloccata",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = notifyOnBlock,
+                    onCheckedChange = { checked ->
+                        prefs.notifyOnBlock = checked
+                        notifyOnBlock = checked
+                    }
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-// ── Dialog durata personalizzata ─────────────────────────────────────────────
+// ── Tab: Backup ───────────────────────────────────────────────────────────────
+
+@Composable
+private fun BackupTab(
+    context: Context,
+    onExportBackup: (Context, Uri) -> Unit,
+    onImportBackup: (Context, Uri) -> Unit
+) {
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { onExportBackup(context, it) } }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { onImportBackup(context, it) } }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsCard(
+            icon = Icons.Rounded.Upload,
+            title = "Esporta whitelist",
+            subtitle = "Salva i tuoi contatti consentiti in un file JSON",
+            onClick = { exportLauncher.launch("callblocker_backup.json") }
+        )
+
+        SettingsCard(
+            icon = Icons.Rounded.Download,
+            title = "Importa whitelist",
+            subtitle = "Ripristina contatti da un file di backup JSON.\nAttenzione: sovrascriverà la lista attuale.",
+            onClick = { importLauncher.launch(arrayOf("application/json")) },
+            isDestructive = true
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            )
+        ) {
+            Row(modifier = Modifier.padding(16.dp)) {
+                Icon(
+                    Icons.Rounded.Info, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Il backup include tutti i contatti della whitelist in formato JSON. " +
+                            "Puoi usarlo per trasferire la lista su un altro dispositivo.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// ── Tab: Info ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun InfoTab(context: Context) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsCard(
+            icon = Icons.Rounded.NewReleases,
+            title = "Versione",
+            subtitle = "1.1.0",
+            onClick = {}
+        )
+
+        SettingsCard(
+            icon = Icons.Rounded.Code,
+            title = "Codice sorgente",
+            subtitle = "Apri il repository su GitHub",
+            onClick = {
+                val intent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("https://github.com/amletoflorio/CallBlocker")
+                )
+                context.startActivity(intent)
+            }
+        )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Row(modifier = Modifier.padding(16.dp)) {
+                Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        "Come funziona",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "CallBlocker usa il CallScreeningService di Android. " +
+                                "Nessun dato viene inviato a server esterni. " +
+                                "Tutto rimane sul tuo dispositivo.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.Favorite, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        "App sviluppata da Amlet",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "Fatto con cura per proteggere la tua privacy",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── Dialog durata personalizzata ──────────────────────────────────────────────
 
 @Composable
 private fun SuspendDialog(
@@ -346,39 +450,48 @@ private fun SuspendDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                // Giorni
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Giorni", modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
                     IconButton(onClick = { if (days > 0) days-- }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Remove, contentDescription = "Meno")
+                        Icon(Icons.Rounded.Remove, "Meno")
                     }
-                    Text("$days", style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
+                    Text(
+                        "$days",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.width(32.dp),
+                        textAlign = TextAlign.Center
+                    )
                     IconButton(onClick = { if (days < 30) days++ }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Più")
+                        Icon(Icons.Rounded.Add, "Più")
                     }
                 }
-                // Ore
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text("Ore", modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
                     IconButton(onClick = { if (hours > 0) hours-- }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Remove, contentDescription = "Meno")
+                        Icon(Icons.Rounded.Remove, "Meno")
                     }
-                    Text("$hours", style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
+                    Text(
+                        "$hours",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.width(32.dp),
+                        textAlign = TextAlign.Center
+                    )
                     IconButton(onClick = { if (hours < 23) hours++ }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Add, contentDescription = "Più")
+                        Icon(Icons.Rounded.Add, "Più")
                     }
                 }
                 if (days == 0 && hours == 0) {
-                    Text("Seleziona almeno 1 ora", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error)
+                    Text(
+                        "Seleziona almeno 1 ora",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         },
@@ -403,16 +516,6 @@ private fun formatTime(timestampMs: Long): String =
     SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(timestampMs))
 
 @Composable
-private fun SectionHeader(title: String) {
-    Text(
-        text = title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(top = 16.dp, bottom = 4.dp, start = 4.dp)
-    )
-}
-
-@Composable
 private fun SettingsCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     title: String,
@@ -431,8 +534,7 @@ private fun SettingsCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                icon,
-                contentDescription = null,
+                icon, null,
                 tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )

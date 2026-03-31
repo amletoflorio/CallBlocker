@@ -100,8 +100,14 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
             val contacts = repository.allContacts.first()
             val result = BackupManager.exportToUri(context, uri, contacts)
             result.fold(
-                onSuccess = { showSnackbar("Backup esportato con successo (${contacts.size} contatti)") },
-                onFailure = { showSnackbar("Errore export: ${it.message}") }
+                onSuccess = {
+                    val msg = "Backup esportato con successo (${contacts.size} contatti)"
+                    showSnackbar(msg)
+                },
+                onFailure = {
+                    val msg = "Errore export: ${it.message}"
+                    showSnackbar(msg)
+                }
             )
             _uiState.update { it.copy(isLoading = false) }
         }
@@ -114,9 +120,13 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
             result.fold(
                 onSuccess = { contacts ->
                     repository.replaceAll(contacts)
-                    showSnackbar("Importati ${contacts.size} contatti")
+                    val msg = "Importati ${contacts.size} contatti"
+                    showSnackbar(msg)
                 },
-                onFailure = { showSnackbar("Errore import: ${it.message}") }
+                onFailure = {
+                    val msg = "Errore import: ${it.message}"
+                    showSnackbar(msg)
+                }
             )
             _uiState.update { it.copy(isLoading = false) }
         }

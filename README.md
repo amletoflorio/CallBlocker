@@ -67,49 +67,16 @@ The app must be set as the default **Call Screening** app in system settings (An
 
 ---
 
-## Project Structure
+## Architecture
 
-```
-app/src/main/java/com/amlet/callblocker/
-│
-├── data/
-│   ├── db/
-│   │   ├── AppDatabase.kt          # Room database (v2)
-│   │   ├── ContactEntity.kt        # Whitelist entry
-│   │   ├── ContactDao.kt
-│   │   ├── BlockedCallEntity.kt    # Blocked call log entry
-│   │   └── BlockedCallDao.kt
-│   ├── prefs/
-│   │   └── AppPreferences.kt       # SharedPreferences wrapper
-│   ├── repository/
-│   │   └── ContactRepository.kt
-│   └── backup/
-│       └── BackupManager.kt        # JSON export/import
-│
-├── service/
-│   └── CallBlockerService.kt       # Core: CallScreeningService
-│
-├── ui/
-│   ├── screens/
-│   │   ├── HomeScreen.kt
-│   │   ├── ContactListScreen.kt
-│   │   ├── AddContactScreen.kt
-│   │   ├── CallLogScreen.kt
-│   │   └── SettingsScreen.kt
-│   ├── viewmodel/
-│   │   └── ContactViewModel.kt
-│   ├── theme/
-│   │   ├── Color.kt
-│   │   ├── Theme.kt
-│   │   └── Type.kt
-│   └── AppNavigation.kt
-│
-├── util/
-│   └── PhoneUtils.kt               # Number normalization
-│
-├── CallBlockerApp.kt               # Application class
-└── MainActivity.kt                 # Entry point, role/permission requests
-```
+The app follows a clean MVVM architecture:
+
+- **data/** — Room database, repositories, preferences, backup
+- **ui/** — Jetpack Compose screens and ViewModels
+- **service/** — CallScreeningService implementation
+- **util/** — Utility classes
+
+This structure keeps business logic separated from UI and Android components.
 
 ---
 
@@ -163,7 +130,7 @@ No `INTERNET` permission — the app is fully offline.
 
 ## Version
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue)
+![Version](https://img.shields.io/badge/version-1.1.0-blue)
 
 ---
 

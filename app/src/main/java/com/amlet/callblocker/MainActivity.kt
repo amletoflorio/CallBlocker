@@ -2,7 +2,6 @@ package com.amlet.callblocker
 
 import android.Manifest
 import android.app.role.RoleManager
-import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,25 +13,29 @@ import com.amlet.callblocker.ui.theme.CallBlockerTheme
 
 class MainActivity : ComponentActivity() {
 
-    // Tiene traccia se l'utente ha concesso il ruolo di call screening
-    private var isServiceEnabled by mutableStateOf(false)
+    // True = il ruolo Call Screening è assegnato a questa app
+    private var isRoleHeld by mutableStateOf(false)
 
-    // Launcher per richiedere il ruolo CALL_SCREENING
     private val roleRequestLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        isServiceEnabled = result.resultCode == RESULT_OK
+    ) {
+        // Dopo il dialog di sistema aggiorna lo stato reale del ruolo
+        checkRoleStatus()
     }
 
-    // Launcher per i permessi runtime (READ_CONTACTS, READ_CALL_LOG)
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { /* gestione opzionale */ }
 
+    override fun onResume() {
+        super.onResume()
+        // Aggiorna sempre al ritorno nell'app (es. dopo revoca manuale del ruolo)
+        checkRoleStatus()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Chiedi permessi runtime al primo avvio
         val permissions = mutableListOf(
             Manifest.permission.READ_CONTACTS,
             Manifest.permission.READ_CALL_LOG
@@ -42,35 +45,28 @@ class MainActivity : ComponentActivity() {
         }
         permissionLauncher.launch(permissions.toTypedArray())
 
-        // Controlla se il servizio è già attivo
-        checkServiceStatus()
+        checkRoleStatus()
 
         setContent {
             CallBlockerTheme {
                 Surface(color = MaterialTheme.colorScheme.background) {
                     AppNavigation(
-                        isServiceEnabled = isServiceEnabled,
-                        onToggleService = ::toggleService
+                        isRoleHeld = isRoleHeld,
+                        onRequestRole = ::requestRole
                     )
                 }
             }
         }
     }
 
-    private fun checkServiceStatus() {
+    private fun checkRoleStatus() {
         val roleManager = getSystemService(RoleManager::class.java)
-        isServiceEnabled = roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
+        isRoleHeld = roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
     }
 
-    private fun toggleService() {
+    private fun requestRole() {
         val roleManager = getSystemService(RoleManager::class.java)
-
-        if (roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            // Non è possibile revocare il ruolo programmaticamente —
-            // l'utente deve farlo manualmente nelle impostazioni
-            isServiceEnabled = false
-            // Mostra istruzioni all'utente (apri impostazioni telefono)
-        } else {
+        if (!roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
             val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
             roleRequestLauncher.launch(intent)
         }
