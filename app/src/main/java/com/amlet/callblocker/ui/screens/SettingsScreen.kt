@@ -16,26 +16,18 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.amlet.callblocker.BuildConfig
+import com.amlet.callblocker.R
 import com.amlet.callblocker.data.prefs.AppPreferences
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-// ── Definizione tab ───────────────────────────────────────────────────────────
-
-private enum class SettingsTab(
-    val label: String,
-    val icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    PROTEZIONE("Protezione", Icons.Rounded.Shield),
-    BACKUP("Backup", Icons.Rounded.Backup),
-    INFO("Info", Icons.Rounded.Info)
-}
-
-// ── Screen principale ─────────────────────────────────────────────────────────
+private enum class SettingsTab { PROTEZIONE, BACKUP, INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,56 +39,44 @@ fun SettingsScreen(
     val context = LocalContext.current
     var selectedTab by remember { mutableStateOf(SettingsTab.PROTEZIONE) }
 
+    val tabLabels = listOf(
+        stringResource(R.string.settings_tab_protection),
+        stringResource(R.string.settings_tab_backup),
+        stringResource(R.string.settings_tab_info)
+    )
+    val tabIcons = listOf(Icons.Rounded.Shield, Icons.Rounded.Backup, Icons.Rounded.Info)
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Impostazioni", fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Rounded.ArrowBack, "Indietro")
+                        Icon(Icons.Rounded.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            // ── Tab bar ───────────────────────────────────────────────────────
+        Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             TabRow(
                 selectedTabIndex = selectedTab.ordinal,
                 containerColor = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.primary,
                 divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
             ) {
-                SettingsTab.entries.forEach { tab ->
+                SettingsTab.entries.forEachIndexed { index, tab ->
                     Tab(
                         selected = selectedTab == tab,
                         onClick = { selectedTab = tab },
-                        icon = {
-                            Icon(
-                                imageVector = tab.icon,
-                                contentDescription = tab.label,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        text = {
-                            Text(
-                                text = tab.label,
-                                style = MaterialTheme.typography.labelMedium
-                            )
-                        }
+                        icon = { Icon(tabIcons[index], tabLabels[index], modifier = Modifier.size(18.dp)) },
+                        text = { Text(tabLabels[index], style = MaterialTheme.typography.labelMedium) }
                     )
                 }
             }
 
-            // ── Contenuto tab ─────────────────────────────────────────────────
             when (selectedTab) {
                 SettingsTab.PROTEZIONE -> ProtezioneTab(context)
                 SettingsTab.BACKUP     -> BackupTab(context, onExportBackup, onImportBackup)
@@ -128,10 +108,7 @@ private fun ProtezioneTab(context: Context) {
     }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
@@ -150,76 +127,49 @@ private fun ProtezioneTab(context: Context) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        Icons.Rounded.PauseCircle,
-                        contentDescription = null,
-                        tint = if (isSuspended)
-                            MaterialTheme.colorScheme.error
-                        else
-                            MaterialTheme.colorScheme.primary,
+                        Icons.Rounded.PauseCircle, null,
+                        tint = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Sospendi protezione",
+                            stringResource(R.string.settings_suspend_title),
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (isSuspended)
-                                MaterialTheme.colorScheme.error
-                            else
-                                MaterialTheme.colorScheme.onSurface
+                            color = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = if (isSuspended)
-                                "Attiva fino a: ${formatTime(suspendUntil)}"
+                            if (isSuspended)
+                                stringResource(R.string.settings_suspend_active_until, formatTime(suspendUntil))
                             else
-                                "Consenti tutte le chiamate per un periodo",
+                                stringResource(R.string.settings_suspend_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (isSuspended) {
                         Button(
-                            onClick = {
-                                prefs.cancelSuspend()
-                                suspendUntil = 0L
-                            },
+                            onClick = { prefs.cancelSuspend(); suspendUntil = 0L },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error
-                            ),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Riattiva ora")
+                            Text(stringResource(R.string.settings_suspend_resume))
                         }
                     } else {
-                        listOf(
-                            "1h" to TimeUnit.HOURS.toMillis(1),
-                            "3h" to TimeUnit.HOURS.toMillis(3),
-                            "24h" to TimeUnit.HOURS.toMillis(24)
-                        ).forEach { (label, ms) ->
-                            OutlinedButton(
-                                onClick = {
-                                    val until = System.currentTimeMillis() + ms
-                                    prefs.suspendUntil = until
-                                    suspendUntil = until
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(12.dp)
-                            ) { Text(label) }
-                        }
-                        OutlinedButton(
-                            onClick = { showSuspendDialog = true },
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                        listOf("1h" to TimeUnit.HOURS.toMillis(1), "3h" to TimeUnit.HOURS.toMillis(3), "24h" to TimeUnit.HOURS.toMillis(24))
+                            .forEach { (label, ms) ->
+                                OutlinedButton(
+                                    onClick = { val until = System.currentTimeMillis() + ms; prefs.suspendUntil = until; suspendUntil = until },
+                                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)
+                                ) { Text(label) }
+                            }
+                        OutlinedButton(onClick = { showSuspendDialog = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
                             Icon(Icons.Rounded.Schedule, null, modifier = Modifier.size(16.dp))
                         }
                     }
@@ -227,42 +177,22 @@ private fun ProtezioneTab(context: Context) {
             }
         }
 
-        // Notifica chiamate bloccate
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.Notifications, null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Notifica chiamate bloccate", style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Ricevi una notifica ogni volta che una chiamata viene bloccata",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(stringResource(R.string.settings_notify_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_notify_subtitle),
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Switch(
-                    checked = notifyOnBlock,
-                    onCheckedChange = { checked ->
-                        prefs.notifyOnBlock = checked
-                        notifyOnBlock = checked
-                    }
-                )
+                Switch(checked = notifyOnBlock, onCheckedChange = { prefs.notifyOnBlock = it; notifyOnBlock = it })
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
@@ -270,68 +200,30 @@ private fun ProtezioneTab(context: Context) {
 // ── Tab: Backup ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun BackupTab(
-    context: Context,
-    onExportBackup: (Context, Uri) -> Unit,
-    onImportBackup: (Context, Uri) -> Unit
-) {
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/json")
-    ) { uri -> uri?.let { onExportBackup(context, it) } }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri -> uri?.let { onImportBackup(context, it) } }
+private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, onImportBackup: (Context, Uri) -> Unit) {
+    val filename = stringResource(R.string.settings_backup_filename)
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { onExportBackup(context, it) } }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onImportBackup(context, it) } }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsCard(
-            icon = Icons.Rounded.Upload,
-            title = "Esporta whitelist",
-            subtitle = "Salva i tuoi contatti consentiti in un file JSON",
-            onClick = { exportLauncher.launch("callblocker_backup.json") }
-        )
-
-        SettingsCard(
-            icon = Icons.Rounded.Download,
-            title = "Importa whitelist",
-            subtitle = "Ripristina contatti da un file di backup JSON.\nAttenzione: sovrascriverà la lista attuale.",
-            onClick = { importLauncher.launch(arrayOf("application/json")) },
-            isDestructive = true
-        )
-
+        SettingsCard(Icons.Rounded.Upload, stringResource(R.string.settings_export_title), stringResource(R.string.settings_export_subtitle),
+            onClick = { exportLauncher.launch(filename) })
+        SettingsCard(Icons.Rounded.Download, stringResource(R.string.settings_import_title), stringResource(R.string.settings_import_subtitle),
+            onClick = { importLauncher.launch(arrayOf("application/json")) }, isDestructive = true)
         Spacer(modifier = Modifier.height(8.dp))
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
-        ) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
             Row(modifier = Modifier.padding(16.dp)) {
-                Icon(
-                    Icons.Rounded.Info, null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
-                )
+                Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Il backup include tutti i contatti della whitelist in formato JSON. " +
-                            "Puoi usarlo per trasferire la lista su un altro dispositivo.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(stringResource(R.string.settings_backup_info),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
@@ -341,171 +233,79 @@ private fun BackupTab(
 @Composable
 private fun InfoTab(context: Context) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsCard(
-            icon = Icons.Rounded.NewReleases,
-            title = "Versione",
-            subtitle = "1.1.0",
-            onClick = {}
-        )
-
-        SettingsCard(
-            icon = Icons.Rounded.Code,
-            title = "Codice sorgente",
-            subtitle = "Apri il repository su GitHub",
-            onClick = {
-                val intent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("https://github.com/amletoflorio/CallBlocker")
-                )
-                context.startActivity(intent)
-            }
-        )
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
+        SettingsCard(Icons.Rounded.NewReleases, stringResource(R.string.settings_version_title), BuildConfig.VERSION_NAME, onClick = {})
+        SettingsCard(Icons.Rounded.Code, stringResource(R.string.settings_github_title), stringResource(R.string.settings_github_subtitle),
+            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/amletoflorio/CallBlocker"))) })
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.padding(16.dp)) {
                 Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(
-                        "Come funziona",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    Text(stringResource(R.string.settings_how_it_works_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "CallBlocker usa il CallScreeningService di Android. " +
-                                "Nessun dato viene inviato a server esterni. " +
-                                "Tutto rimane sul tuo dispositivo.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(stringResource(R.string.settings_how_it_works_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Rounded.Favorite, null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
-                )
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text(
-                        "App sviluppata da Amlet",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        "Fatto con cura per proteggere la tua privacy",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(stringResource(R.string.settings_credits_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.settings_credits_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
-// ── Dialog durata personalizzata ──────────────────────────────────────────────
+// ── Dialog sospensione ────────────────────────────────────────────────────────
 
 @Composable
-private fun SuspendDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (Long) -> Unit
-) {
+private fun SuspendDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
     var days by remember { mutableStateOf(0) }
     var hours by remember { mutableStateOf(1) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = { Icon(Icons.Rounded.Schedule, contentDescription = null) },
-        title = { Text("Sospendi protezione") },
+        icon = { Icon(Icons.Rounded.Schedule, null) },
+        title = { Text(stringResource(R.string.settings_suspend_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(
-                    "Scegli per quanto tempo sospendere il blocco chiamate.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("Giorni", modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
-                    IconButton(onClick = { if (days > 0) days-- }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Remove, "Meno")
-                    }
-                    Text(
-                        "$days",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    IconButton(onClick = { if (days < 30) days++ }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Add, "Più")
-                    }
+                Text(stringResource(R.string.settings_suspend_dialog_body),
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.settings_suspend_dialog_days), modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
+                    IconButton(onClick = { if (days > 0) days-- }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Remove, stringResource(R.string.common_less)) }
+                    Text("$days", style = MaterialTheme.typography.titleLarge, modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
+                    IconButton(onClick = { if (days < 30) days++ }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Add, stringResource(R.string.common_more)) }
                 }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("Ore", modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
-                    IconButton(onClick = { if (hours > 0) hours-- }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Remove, "Meno")
-                    }
-                    Text(
-                        "$hours",
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.width(32.dp),
-                        textAlign = TextAlign.Center
-                    )
-                    IconButton(onClick = { if (hours < 23) hours++ }, modifier = Modifier.size(36.dp)) {
-                        Icon(Icons.Rounded.Add, "Più")
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.settings_suspend_dialog_hours), modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
+                    IconButton(onClick = { if (hours > 0) hours-- }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Remove, stringResource(R.string.common_less)) }
+                    Text("$hours", style = MaterialTheme.typography.titleLarge, modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
+                    IconButton(onClick = { if (hours < 23) hours++ }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Add, stringResource(R.string.common_more)) }
                 }
                 if (days == 0 && hours == 0) {
-                    Text(
-                        "Seleziona almeno 1 ora",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error
-                    )
+                    Text(stringResource(R.string.settings_suspend_dialog_min_error),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
             }
         },
         confirmButton = {
-            Button(
-                onClick = {
-                    val ms = TimeUnit.DAYS.toMillis(days.toLong()) + TimeUnit.HOURS.toMillis(hours.toLong())
-                    onConfirm(ms)
-                },
-                enabled = days > 0 || hours > 0
-            ) { Text("Sospendi") }
+            Button(onClick = { onConfirm(TimeUnit.DAYS.toMillis(days.toLong()) + TimeUnit.HOURS.toMillis(hours.toLong())) },
+                enabled = days > 0 || hours > 0) { Text(stringResource(R.string.settings_suspend_dialog_confirm)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Annulla") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_suspend_dialog_cancel)) }
         }
     )
 }
@@ -518,38 +318,21 @@ private fun formatTime(timestampMs: Long): String =
 @Composable
 private fun SettingsCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String,
-    subtitle: String,
+    title: String, subtitle: String,
     onClick: () -> Unit,
     isDestructive: Boolean = false
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon, null,
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null,
                 tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp)
-            )
+                modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = subtitle,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Text(title, style = MaterialTheme.typography.titleMedium,
+                    color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }

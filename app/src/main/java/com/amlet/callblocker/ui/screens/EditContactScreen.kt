@@ -13,17 +13,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.amlet.callblocker.R
+import com.amlet.callblocker.data.db.ContactEntity
 import com.amlet.callblocker.util.PhoneUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AddContactScreen(
-    onSave: (name: String, phone: String, notes: String) -> Unit,
+fun EditContactScreen(
+    contact: ContactEntity,
+    onSave: (ContactEntity) -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    var name by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var notes by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(contact.name) }
+    var phone by remember { mutableStateOf(contact.phoneNumber) }
+    var notes by remember { mutableStateOf(contact.notes) }
     var nameError by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
 
@@ -44,7 +46,7 @@ fun AddContactScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.add_contact_title), fontWeight = FontWeight.Bold) },
+                title = { Text(stringResource(R.string.edit_contact_title), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Rounded.Close, stringResource(R.string.add_contact_cancel))
@@ -65,7 +67,7 @@ fun AddContactScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                stringResource(R.string.add_contact_description),
+                stringResource(R.string.edit_contact_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -119,7 +121,13 @@ fun AddContactScreen(
             Button(
                 onClick = {
                     if (validate()) {
-                        onSave(name.trim(), phone.trim(), notes.trim())
+                        onSave(
+                            contact.copy(
+                                name = name.trim(),
+                                phoneNumber = phone.trim(),
+                                notes = notes.trim()
+                            )
+                        )
                         onNavigateBack()
                     }
                 },

@@ -10,8 +10,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.amlet.callblocker.R
 import com.amlet.callblocker.data.db.ContactEntity
 import com.amlet.callblocker.ui.components.ContactCard
 
@@ -23,29 +25,24 @@ fun ContactListScreen(
     onSearchQueryChange: (String) -> Unit,
     onDeleteContact: (ContactEntity) -> Unit,
     onAddContact: () -> Unit,
+    onEditContact: (ContactEntity) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     var contactToDelete by remember { mutableStateOf<ContactEntity?>(null) }
 
-    // Dialog di conferma eliminazione
     contactToDelete?.let { contact ->
         AlertDialog(
             onDismissRequest = { contactToDelete = null },
-            title = { Text("Rimuovere il contatto?") },
-            text = { Text("${contact.name} verrà rimosso dalla whitelist. Le sue chiamate future saranno bloccate.") },
+            title = { Text(stringResource(R.string.contacts_delete_confirm)) },
+            text = { Text("${contact.name}") },
             confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDeleteContact(contact)
-                        contactToDelete = null
-                    }
-                ) {
-                    Text("Rimuovi", color = MaterialTheme.colorScheme.error)
+                TextButton(onClick = { onDeleteContact(contact); contactToDelete = null }) {
+                    Text(stringResource(R.string.contacts_delete_confirm_btn), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { contactToDelete = null }) {
-                    Text("Annulla")
+                    Text(stringResource(R.string.common_cancel))
                 }
             }
         )
@@ -54,27 +51,20 @@ fun ContactListScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        "Whitelist",
-                        fontWeight = FontWeight.Bold
-                    )
-                },
+                title = { Text(stringResource(R.string.contacts_title), fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Rounded.ArrowBack, "Indietro")
+                        Icon(Icons.Rounded.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onAddContact,
                 icon = { Icon(Icons.Rounded.Add, null) },
-                text = { Text("Aggiungi") },
+                text = { Text(stringResource(R.string.common_add)) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             )
@@ -87,22 +77,16 @@ fun ContactListScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Barra di ricerca
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 12.dp),
-                placeholder = { Text("Cerca per nome o numero...") },
-                leadingIcon = {
-                    Icon(Icons.Rounded.Search, null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                },
+                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                placeholder = { Text(stringResource(R.string.contacts_search_hint)) },
+                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
                 trailingIcon = {
                     if (searchQuery.isNotBlank()) {
                         IconButton(onClick = { onSearchQueryChange("") }) {
-                            Icon(Icons.Rounded.Clear, "Cancella ricerca")
+                            Icon(Icons.Rounded.Clear, stringResource(R.string.contacts_search_clear))
                         }
                     }
                 },
@@ -115,11 +99,8 @@ fun ContactListScreen(
             )
 
             if (contacts.isEmpty()) {
-                // Stato vuoto
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(32.dp),
+                    modifier = Modifier.fillMaxSize().padding(32.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -127,22 +108,21 @@ fun ContactListScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Icon(
-                            Icons.Rounded.ContactPhone,
-                            contentDescription = null,
+                            Icons.Rounded.ContactPhone, null,
                             modifier = Modifier.size(64.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             if (searchQuery.isBlank())
-                                "Nessun contatto nella whitelist"
+                                stringResource(R.string.contacts_empty)
                             else
-                                "Nessun risultato per \"$searchQuery\"",
+                                "\"$searchQuery\"",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (searchQuery.isBlank()) {
                             Text(
-                                "Aggiungi contatti che possono chiamarti anche se non sono in rubrica.",
+                                stringResource(R.string.contacts_add_description),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
@@ -152,12 +132,13 @@ fun ContactListScreen(
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp) // Spazio per FAB
+                    contentPadding = PaddingValues(bottom = 88.dp)
                 ) {
                     items(contacts, key = { it.id }) { contact ->
                         ContactCard(
                             contact = contact,
-                            onDelete = { contactToDelete = contact }
+                            onDelete = { contactToDelete = contact },
+                            onEdit = { onEditContact(contact) }
                         )
                     }
                 }

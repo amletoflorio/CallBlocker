@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,7 +21,8 @@ import com.amlet.callblocker.util.PhoneUtils
 @Composable
 fun ContactCard(
     contact: ContactEntity,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -35,7 +37,6 @@ fun ContactCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Avatar con iniziale
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -53,7 +54,6 @@ fun ContactCard(
 
             Spacer(modifier = Modifier.width(14.dp))
 
-            // Nome e numero
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = contact.name,
@@ -73,6 +73,15 @@ fun ContactCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
+            }
+
+            // Pulsante modifica
+            IconButton(onClick = onEdit) {
+                Icon(
+                    Icons.Rounded.EditNote,
+                    contentDescription = "Modifica ${contact.name}",
+                    tint = MaterialTheme.colorScheme.primary
+                )
             }
 
             // Pulsante elimina

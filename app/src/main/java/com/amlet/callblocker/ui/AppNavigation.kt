@@ -16,8 +16,11 @@ object Routes {
     const val HOME = "home"
     const val CONTACTS = "contacts"
     const val ADD_CONTACT = "add_contact"
+    const val EDIT_CONTACT = "edit_contact/{contactId}"
     const val SETTINGS = "settings"
     const val CALL_LOG = "call_log"
+
+    fun editContact(contactId: Int) = "edit_contact/$contactId"
 }
 
 @Composable
@@ -37,13 +40,9 @@ fun AppNavigation(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    // Stato sospensione — riletto a ogni recomposition
     var isSuspended by remember { mutableStateOf(prefs.isSuspended) }
-
-    // Il toggle è "attivo" (verde) se il ruolo è held E la protezione non è sospesa
     val isProtectionActive = isRoleHeld && !isSuspended
 
-    // Mostra snackbar per messaggi dal ViewModel
     LaunchedEffect(uiState.snackbarMessage) {
         uiState.snackbarMessage?.let { message ->
             scope.launch {
@@ -56,8 +55,6 @@ fun AppNavigation(
         }
     }
 
-    // Callback toggle: se il ruolo non è held lo richiede;
-    // altrimenti attiva/disattiva la sospensione indefinita
     val onToggleProtection: () -> Unit = {
         if (!isRoleHeld) {
             onRequestRole()
@@ -65,7 +62,6 @@ fun AppNavigation(
             prefs.cancelSuspend()
             isSuspended = false
         } else {
-            // Sospendi indefinitamente (Long.MAX_VALUE come sentinella)
             prefs.suspendUntil = Long.MAX_VALUE
             isSuspended = true
         }
@@ -97,6 +93,9 @@ fun AppNavigation(
                     onSearchQueryChange = viewModel::updateSearchQuery,
                     onDeleteContact = viewModel::deleteContact,
                     onAddContact = { navController.navigate(Routes.ADD_CONTACT) },
+                    onEditContact = { contact ->
+                        navController.navigate(Routes.editContact(contact.id))
+                    },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -106,6 +105,23 @@ fun AppNavigation(
                     onSave = viewModel::addContact,
                     onNavigateBack = { navController.popBackStack() }
                 )
+            }
+
+            composable(Routes.EDIT_CONTACT) { backStackEntry ->
+                val contactId = backStackEntry.arguments?.getString("contactId")?.toIntOrNull()
+                val contact = contactId?.let { id ->
+                    filteredContacts.firstOrNull { it.id == id }
+                }
+                if (contact != null) {
+                    EditContactScreen(
+                        contact = contact,
+                        onSave = viewModel::updateContact,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                } else {
+                    // Contatto non trovato — torna indietro
+                    LaunchedEffect(Unit) { navController.popBackStack() }
+                }
             }
 
             composable(Routes.SETTINGS) {

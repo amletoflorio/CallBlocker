@@ -1,3 +1,122 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
+
+    <!-- App -->
     <string name="app_name">CallBlocker</string>
+    <string name="app_tagline">Spam call protection</string>
+
+    <!-- HomeScreen -->
+    <string name="home_status_active">ACTIVE</string>
+    <string name="home_status_inactive">INACTIVE</string>
+    <string name="home_stat_contacts">Allowed\ncontacts</string>
+    <string name="home_stat_blocked">Blocked</string>
+    <string name="home_btn_whitelist">Manage whitelist</string>
+    <string name="home_btn_call_log">Blocked calls log</string>
+    <string name="home_info_disclaimer">All calls from numbers not in your contacts or whitelist will be blocked automatically.</string>
+
+    <!-- ContactListScreen -->
+    <string name="contacts_title">Whitelist</string>
+    <string name="contacts_search_hint">Search by name or number…</string>
+    <string name="contacts_search_clear">Clear search</string>
+    <string name="contacts_empty">No contacts in whitelist</string>
+    <string name="contacts_add">Add contact</string>
+    <string name="contacts_add_description">Add contacts who can call you even if they\'re not in your phonebook.</string>
+    <string name="contacts_delete_confirm">Remove contact?</string>
+    <string name="contacts_delete_confirm_btn">Remove</string>
+
+    <!-- AddContactScreen -->
+    <string name="add_contact_title">Add contact</string>
+    <string name="add_contact_description">Add a number to the whitelist. These contacts can call you even if they\'re not in your phonebook.</string>
+    <string name="add_contact_name_label">Name *</string>
+    <string name="add_contact_name_hint">Enter a name</string>
+    <string name="add_contact_phone_label">Phone number *</string>
+    <string name="add_contact_phone_hint">E.g. +39 02 1234567 or 3391234567</string>
+    <string name="add_contact_phone_error">Invalid number (min. 6 digits)</string>
+    <string name="add_contact_notes_label">Notes (optional)</string>
+    <string name="add_contact_notes_hint">E.g. BRT courier, Dentist…</string>
+    <string name="add_contact_save">Save to whitelist</string>
+    <string name="add_contact_cancel">Cancel</string>
+
+    <!-- CallLogScreen -->
+    <string name="call_log_title">Blocked calls log</string>
+    <string name="call_log_empty">No blocked calls</string>
+    <string name="call_log_clear">Clear log</string>
+    <string name="call_log_clear_confirm">Delete all %1$d blocked calls from the log?</string>
+    <string name="call_log_blocked_label">Blocked</string>
+    <string name="call_log_unknown">Unknown number</string>
+    <string name="call_log_today">Today</string>
+    <string name="call_log_yesterday">Yesterday</string>
+
+    <!-- SettingsScreen -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_tab_protection">Protection</string>
+    <string name="settings_tab_backup">Backup</string>
+    <string name="settings_tab_info">Info</string>
+    <string name="settings_back">Back</string>
+
+    <!-- Settings — Protection tab -->
+    <string name="settings_suspend_title">Suspend protection</string>
+    <string name="settings_suspend_subtitle">Allow all calls for a period</string>
+    <string name="settings_suspend_active_until">Active until: %1$s</string>
+    <string name="settings_suspend_resume">Resume now</string>
+    <string name="settings_suspend_dialog_title">Suspend protection</string>
+    <string name="settings_suspend_dialog_body">Choose how long to suspend call blocking.</string>
+    <string name="settings_suspend_dialog_days">Days</string>
+    <string name="settings_suspend_dialog_hours">Hours</string>
+    <string name="settings_suspend_dialog_min_error">Select at least 1 hour</string>
+    <string name="settings_suspend_dialog_confirm">Suspend</string>
+    <string name="settings_suspend_dialog_cancel">Cancel</string>
+    <string name="settings_notify_title">Notify blocked calls</string>
+    <string name="settings_notify_subtitle">Receive a notification every time a call is blocked</string>
+
+    <!-- Settings — Backup tab -->
+    <string name="settings_export_title">Export whitelist</string>
+    <string name="settings_export_subtitle">Save your allowed contacts to a JSON file</string>
+    <string name="settings_import_title">Import whitelist</string>
+    <string name="settings_import_subtitle">Restore contacts from a JSON backup file.\nWarning: this will overwrite the current list.</string>
+    <string name="settings_backup_info">The backup includes all whitelist contacts in JSON format. You can use it to transfer the list to another device.</string>
+    <string name="settings_backup_filename">callblocker_backup.json</string>
+
+    <!-- Settings — Info tab -->
+    <string name="settings_version_title">Version</string>
+    <string name="settings_version_value">1.2.0</string>
+    <string name="settings_github_title">Source code</string>
+    <string name="settings_github_subtitle">Open the repository on GitHub</string>
+    <string name="settings_how_it_works_title">How it works</string>
+    <string name="settings_how_it_works_body">CallBlocker uses Android\'s CallScreeningService. No data is sent to external servers. Everything stays on your device.</string>
+    <string name="settings_credits_title">App developed by Amlet</string>
+    <string name="settings_credits_subtitle">Made with care to protect your privacy</string>
+
+    <!-- ViewModel messages -->
+    <string name="msg_contact_added">Contact added successfully</string>
+    <string name="msg_contact_updated">Contact updated successfully</string>
+    <string name="edit_contact_title">Edit Contact</string>
+    <string name="edit_contact_description">Modify the contact details in the whitelist.</string>
+    <string name="msg_contact_deleted">%1$s removed from whitelist</string>
+    <string name="msg_log_cleared">Log cleared</string>
+    <string name="msg_export_success">Backup exported successfully (%1$d contacts)</string>
+    <string name="msg_export_error">Export error: %1$s</string>
+    <string name="msg_import_success">%1$d contacts imported</string>
+    <string name="msg_import_error">Import error: %1$s</string>
+    <string name="msg_generic_error">Error: %1$s</string>
+
+    <!-- NotificationHelper -->
+    <string name="notif_channel_backup_name">Backup &amp; restore</string>
+    <string name="notif_channel_backup_desc">Notifications on export and import completion</string>
+    <string name="notif_backup_success_title">Backup completed</string>
+    <string name="notif_backup_error_title">Backup error</string>
+    <string name="notif_restore_success_title">Restore completed</string>
+    <string name="notif_restore_error_title">Restore error</string>
+    <string name="notif_channel_blocked_name">Blocked calls</string>
+    <string name="notif_blocked_title">Blocked call</string>
+
+    <!-- Common -->
+    <string name="common_add">Add</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_back">Back</string>
+    <string name="common_less">Less</string>
+    <string name="common_more">More</string>
+    <string name="date_format_full">EEEE d MMMM</string>
+    <string name="date_format_time">HH:mm</string>
+
 </resources>

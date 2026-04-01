@@ -130,7 +130,7 @@ No `INTERNET` permission — the app is fully offline.
 
 ## Version
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue)
+![Version](https://img.shields.io/badge/version-1.2.0-blue)
 
 ---
 

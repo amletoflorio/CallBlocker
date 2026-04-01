@@ -13,9 +13,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.amlet.callblocker.R
 import com.amlet.callblocker.ui.theme.*
 
 @Composable
@@ -46,7 +48,6 @@ fun HomeScreen(
         ) {
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Header
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -54,13 +55,13 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "CallBlocker",
+                        text = stringResource(R.string.app_name),
                         style = MaterialTheme.typography.displayLarge,
                         color = MaterialTheme.colorScheme.onBackground,
                         fontWeight = FontWeight.ExtraBold
                     )
                     Text(
-                        text = "Protezione chiamate spam",
+                        text = stringResource(R.string.app_tagline),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -68,7 +69,7 @@ fun HomeScreen(
                 IconButton(onClick = onNavigateToSettings) {
                     Icon(
                         Icons.Rounded.Settings,
-                        contentDescription = "Impostazioni",
+                        contentDescription = stringResource(R.string.settings_title),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -76,7 +77,6 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(56.dp))
 
-            // Pulsante centrale ON/OFF
             Box(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
@@ -102,7 +102,10 @@ fun HomeScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = if (isServiceEnabled) "ATTIVO" else "DISATTIVO",
+                        text = if (isServiceEnabled)
+                            stringResource(R.string.home_status_active)
+                        else
+                            stringResource(R.string.home_status_inactive),
                         color = statusColor,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -113,13 +116,10 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(48.dp))
 
-            // Card statistiche
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(
                     modifier = Modifier
@@ -129,10 +129,10 @@ fun HomeScreen(
                 ) {
                     StatItem(
                         icon = Icons.Rounded.Shield,
-                        label = "Contatti\nconsentiti",
+                        label = stringResource(R.string.home_stat_contacts),
                         value = "$contactCount"
                     )
-                    Divider(
+                    HorizontalDivider(
                         modifier = Modifier
                             .height(48.dp)
                             .width(1.dp),
@@ -140,7 +140,7 @@ fun HomeScreen(
                     )
                     StatItem(
                         icon = Icons.Rounded.Block,
-                        label = "Bloccate",
+                        label = stringResource(R.string.home_stat_blocked),
                         value = "$blockedCount"
                     )
                 }
@@ -148,12 +148,9 @@ fun HomeScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Pulsante gestisci contatti
             Button(
                 onClick = onNavigateToContacts,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -162,33 +159,23 @@ fun HomeScreen(
             ) {
                 Icon(Icons.Rounded.Contacts, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "Gestisci whitelist",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                Text(stringResource(R.string.home_btn_whitelist), style = MaterialTheme.typography.titleMedium)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Pulsante log chiamate bloccate
             OutlinedButton(
                 onClick = onNavigateToCallLog,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
+                modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Rounded.History, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    "Log chiamate bloccate",
-                    style = MaterialTheme.typography.titleMedium
-                )
+                Text(stringResource(R.string.home_btn_call_log), style = MaterialTheme.typography.titleMedium)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Info
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
@@ -200,15 +187,10 @@ fun HomeScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Rounded.Info,
-                        contentDescription = null,
-                        tint = Amber500,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    Icon(Icons.Rounded.Info, null, tint = Amber500, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Tutte le chiamate di numeri non in rubrica o whitelist verranno bloccate automaticamente.",
+                        text = stringResource(R.string.home_info_disclaimer),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -225,22 +207,9 @@ private fun StatItem(
     value: String
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp)
-        )
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
         Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = value, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.amlet.callblocker.CallBlockerApp
+import com.amlet.callblocker.R
 import com.amlet.callblocker.data.backup.BackupManager
 import com.amlet.callblocker.data.db.BlockedCallEntity
 import com.amlet.callblocker.data.db.ContactEntity
@@ -32,7 +33,6 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
 
     val filteredContacts: StateFlow<List<ContactEntity>>
 
-    /** Stream reattivo delle chiamate bloccate per la CallLogScreen */
     val blockedCalls: StateFlow<List<BlockedCallEntity>> =
         db.blockedCallDao().getAllBlocked()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -69,24 +69,40 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 repository.addContact(name, phoneNumber, notes)
-                showSnackbar("Contatto aggiunto con successo")
+                showSnackbar(getApplication<Application>().getString(R.string.msg_contact_added))
             } catch (e: Exception) {
-                showSnackbar("Errore: ${e.message}")
+                showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
             }
         }
+    }
+
+    fun updateContact(contact: ContactEntity) {
+        viewModelScope.launch {
+            try {
+                repository.updateContact(contact)
+                showSnackbar(getApplication<Application>().getString(R.string.msg_contact_updated))
+            } catch (e: Exception) {
+                showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
+            }
+        }
+    }
+
+    fun getContactById(id: Int): ContactEntity? {
+        return _uiState.value.contacts.firstOrNull { it.id == id }
+            ?: filteredContacts.value.firstOrNull { it.id == id }
     }
 
     fun deleteContact(contact: ContactEntity) {
         viewModelScope.launch {
             repository.deleteContact(contact)
-            showSnackbar("${contact.name} rimosso dalla whitelist")
+            showSnackbar(getApplication<Application>().getString(R.string.msg_contact_deleted, contact.name))
         }
     }
 
     fun clearCallLog() {
         viewModelScope.launch {
             db.blockedCallDao().deleteAll()
-            showSnackbar("Log svuotato")
+            showSnackbar(getApplication<Application>().getString(R.string.msg_log_cleared))
         }
     }
 
@@ -100,14 +116,8 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
             val contacts = repository.allContacts.first()
             val result = BackupManager.exportToUri(context, uri, contacts)
             result.fold(
-                onSuccess = {
-                    val msg = "Backup esportato con successo (${contacts.size} contatti)"
-                    showSnackbar(msg)
-                },
-                onFailure = {
-                    val msg = "Errore export: ${it.message}"
-                    showSnackbar(msg)
-                }
+                onSuccess = { showSnackbar(context.getString(R.string.msg_export_success, contacts.size)) },
+                onFailure = { showSnackbar(context.getString(R.string.msg_export_error, it.message)) }
             )
             _uiState.update { it.copy(isLoading = false) }
         }
@@ -120,13 +130,9 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
             result.fold(
                 onSuccess = { contacts ->
                     repository.replaceAll(contacts)
-                    val msg = "Importati ${contacts.size} contatti"
-                    showSnackbar(msg)
+                    showSnackbar(context.getString(R.string.msg_import_success, contacts.size))
                 },
-                onFailure = {
-                    val msg = "Errore import: ${it.message}"
-                    showSnackbar(msg)
-                }
+                onFailure = { showSnackbar(context.getString(R.string.msg_import_error, it.message)) }
             )
             _uiState.update { it.copy(isLoading = false) }
         }
