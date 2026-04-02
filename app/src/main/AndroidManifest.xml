@@ -22,6 +22,9 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- Internet per il controllo aggiornamenti (opt-in dall'utente) -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".CallBlockerApp"
         android:allowBackup="true"
@@ -44,8 +47,6 @@
 
         <!-- ═══════════════════════════════════════
              CALL SCREENING SERVICE
-             Deve essere dichiarato con questo permission
-             altrimenti Android lo ignora completamente
         ═══════════════════════════════════════ -->
         <service
             android:name=".service.CallBlockerService"

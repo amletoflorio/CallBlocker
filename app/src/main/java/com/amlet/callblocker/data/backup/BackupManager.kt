@@ -6,6 +6,7 @@ import com.amlet.callblocker.data.db.ContactEntity
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
 
 /**
@@ -30,10 +31,7 @@ object BackupManager {
     )
 
     /**
-     * Esporta i contatti in un file JSON scelto dall'utente.
-     *
-     * @param uri Uri del file di destinazione (fornito dal SAF)
-     * @return true se l'export è riuscito
+     * Esporta i contatti in un file JSON scelto dall'utente (via SAF).
      */
     fun exportToUri(
         context: Context,
@@ -55,10 +53,26 @@ object BackupManager {
     }
 
     /**
+     * Esporta i contatti direttamente in un [File] del filesystem.
+     * Usato da [com.amlet.callblocker.worker.AutoBackupWorker] per il backup automatico.
+     */
+    fun exportToFile(
+        context: Context,
+        file: File,
+        contacts: List<ContactEntity>
+    ): Result<Unit> {
+        return try {
+            val backup = BackupFile(contacts = contacts)
+            val jsonString = json.encodeToString(backup)
+            file.writeText(jsonString, Charsets.UTF_8)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Importa i contatti da un file JSON scelto dall'utente.
-     *
-     * @param uri Uri del file sorgente (fornito dal SAF)
-     * @return Result con la lista di contatti o un errore
      */
     fun importFromUri(
         context: Context,

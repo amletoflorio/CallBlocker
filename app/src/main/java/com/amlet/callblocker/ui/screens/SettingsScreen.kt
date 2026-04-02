@@ -21,8 +21,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.amlet.callblocker.BuildConfig
+import com.amlet.callblocker.CallBlockerApp
 import com.amlet.callblocker.R
 import com.amlet.callblocker.data.prefs.AppPreferences
+import com.amlet.callblocker.util.UpdateChecker
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
@@ -201,19 +204,149 @@ private fun ProtezioneTab(context: Context) {
 
 @Composable
 private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, onImportBackup: (Context, Uri) -> Unit) {
+    val prefs = remember { AppPreferences(context) }
+    var intervalDays by remember { mutableStateOf(prefs.autoBackupIntervalDays) }
+    val lastBackupAt by remember { mutableStateOf(prefs.lastAutoBackupAt) }
+    var folderUriString by remember { mutableStateOf(prefs.autoBackupFolderUri) }
+
     val filename = stringResource(R.string.settings_backup_filename)
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { onExportBackup(context, it) } }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onImportBackup(context, it) } }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        uri?.let { onExportBackup(context, it) }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        uri?.let { onImportBackup(context, it) }
+    }
+
+    // Folder picker per il backup automatico — richiede permesso persistente
+    val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            // Acquisisce il permesso persistente così il Worker può accedere anche in background
+            context.contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            prefs.autoBackupFolderUri = uri.toString()
+            folderUriString = uri.toString()
+        }
+    }
+
+    // Opzioni frequenza: 0 = disabilitato, 1, 7, 30
+    val intervalOptions = listOf(
+        0  to stringResource(R.string.settings_auto_backup_off),
+        1  to stringResource(R.string.settings_auto_backup_daily),
+        7  to stringResource(R.string.settings_auto_backup_weekly),
+        30 to stringResource(R.string.settings_auto_backup_monthly)
+    )
+
+    // Etichetta leggibile della cartella selezionata
+    val folderLabel = folderUriString?.let { uriStr ->
+        runCatching {
+            val uri = Uri.parse(uriStr)
+            // Estrae solo il nome della cartella dall'URI SAF (es. "Documenti/CallBackup")
+            uri.lastPathSegment?.substringAfterLast(':') ?: uriStr
+        }.getOrNull()
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Backup automatico ────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.AutoMode, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(stringResource(R.string.settings_auto_backup_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_auto_backup_subtitle),
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                // Chip di selezione frequenza
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    intervalOptions.forEach { (days, label) ->
+                        FilterChip(
+                            selected = intervalDays == days,
+                            onClick = {
+                                intervalDays = days
+                                prefs.autoBackupIntervalDays = days
+                                (context.applicationContext as CallBlockerApp).rescheduleAutoBackup()
+                            },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                // Selezione cartella — visibile solo se il backup automatico è abilitato
+                if (intervalDays > 0) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Folder, null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.settings_auto_backup_folder),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                folderLabel ?: stringResource(R.string.settings_auto_backup_folder_default),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { folderPickerLauncher.launch(null) },
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(stringResource(R.string.settings_auto_backup_folder_choose))
+                        }
+                    }
+                }
+
+                // Ultima esportazione automatica
+                if (lastBackupAt > 0L) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.CheckCircle, null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.settings_auto_backup_last, formatDateTime(lastBackupAt)),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Backup manuale ───────────────────────────────────────────────────
         SettingsCard(Icons.Rounded.Upload, stringResource(R.string.settings_export_title), stringResource(R.string.settings_export_subtitle),
             onClick = { exportLauncher.launch(filename) })
         SettingsCard(Icons.Rounded.Download, stringResource(R.string.settings_import_title), stringResource(R.string.settings_import_subtitle),
             onClick = { importLauncher.launch(arrayOf("application/json")) }, isDestructive = true)
+
         Spacer(modifier = Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
@@ -232,14 +365,159 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
 
 @Composable
 private fun InfoTab(context: Context) {
+    val prefs = remember { AppPreferences(context) }
+    val scope = rememberCoroutineScope()
+
+    var checkUpdatesEnabled by remember { mutableStateOf(prefs.checkUpdatesEnabled) }
+    var updateDialogInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
+    var updateChecking by remember { mutableStateOf(false) }
+    var updateUpToDate by remember { mutableStateOf(false) }
+    var updateError by remember { mutableStateOf<String?>(null) }
+
+    // Dialog: aggiornamento disponibile
+    updateDialogInfo?.let { info ->
+        AlertDialog(
+            onDismissRequest = { updateDialogInfo = null },
+            icon = { Icon(Icons.Rounded.SystemUpdate, null) },
+            title = { Text(stringResource(R.string.update_dialog_title)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.update_dialog_body, BuildConfig.VERSION_NAME, info.latestVersion))
+                    if (info.releaseNotes.isNotBlank()) {
+                        HorizontalDivider()
+                        Text(info.releaseNotes,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl)))
+                    updateDialogInfo = null
+                }) { Text(stringResource(R.string.update_dialog_download)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { updateDialogInfo = null }) {
+                    Text(stringResource(R.string.update_dialog_later))
+                }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
-        SettingsCard(Icons.Rounded.NewReleases, stringResource(R.string.settings_version_title), BuildConfig.VERSION_NAME, onClick = {})
+
+        // ── Versione + controllo aggiornamenti ───────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.NewReleases, null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_version_title), style = MaterialTheme.typography.titleMedium)
+                        Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // Toggle controllo aggiornamenti
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_check_updates_title),
+                            style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.settings_check_updates_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(
+                        checked = checkUpdatesEnabled,
+                        onCheckedChange = {
+                            checkUpdatesEnabled = it
+                            prefs.checkUpdatesEnabled = it
+                            // Reset stati UI quando si disabilita
+                            if (!it) { updateUpToDate = false; updateError = null }
+                        }
+                    )
+                }
+
+                // Pulsante "Controlla ora"
+                if (checkUpdatesEnabled) {
+                    Button(
+                        onClick = {
+                            updateUpToDate = false
+                            updateError = null
+                            updateChecking = true
+                            scope.launch {
+                                when (val result = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)) {
+                                    is UpdateChecker.UpdateResult.UpdateAvailable -> {
+                                        updateDialogInfo = result.info
+                                    }
+                                    is UpdateChecker.UpdateResult.UpToDate -> {
+                                        updateUpToDate = true
+                                    }
+                                    is UpdateChecker.UpdateResult.Error -> {
+                                        updateError = result.message
+                                    }
+                                }
+                                updateChecking = false
+                            }
+                        },
+                        enabled = !updateChecking,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (updateChecking) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        } else {
+                            Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(stringResource(R.string.settings_check_updates_btn))
+                    }
+
+                    when {
+                        updateUpToDate -> {
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Rounded.CheckCircle, null,
+                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                                Text(stringResource(R.string.settings_check_updates_up_to_date),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary)
+                            }
+                        }
+                        updateError != null -> {
+                            Row(verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Icon(Icons.Rounded.Warning, null,
+                                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                                Text(stringResource(R.string.settings_check_updates_error, updateError!!),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         SettingsCard(Icons.Rounded.Code, stringResource(R.string.settings_github_title), stringResource(R.string.settings_github_subtitle),
             onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/amletoflorio/CallBlocker"))) })
+
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.padding(16.dp)) {
@@ -314,6 +592,9 @@ private fun SuspendDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
 
 private fun formatTime(timestampMs: Long): String =
     SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()).format(Date(timestampMs))
+
+private fun formatDateTime(timestampMs: Long): String =
+    SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(timestampMs))
 
 @Composable
 private fun SettingsCard(

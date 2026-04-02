@@ -37,6 +37,10 @@
     <string name="add_contact_save">Save to whitelist</string>
     <string name="add_contact_cancel">Cancel</string>
 
+    <!-- EditContactScreen -->
+    <string name="edit_contact_title">Edit Contact</string>
+    <string name="edit_contact_description">Modify the contact details in the whitelist.</string>
+
     <!-- CallLogScreen -->
     <string name="call_log_title">Blocked calls log</string>
     <string name="call_log_empty">No blocked calls</string>
@@ -77,9 +81,21 @@
     <string name="settings_backup_info">The backup includes all whitelist contacts in JSON format. You can use it to transfer the list to another device.</string>
     <string name="settings_backup_filename">callblocker_backup.json</string>
 
+    <!-- Settings — Auto backup -->
+    <string name="settings_auto_backup_title">Automatic backup</string>
+    <string name="settings_auto_backup_subtitle">Saves to Documents/CallBlocker/ on your device</string>
+    <string name="settings_auto_backup_off">Off</string>
+    <string name="settings_auto_backup_daily">Daily</string>
+    <string name="settings_auto_backup_weekly">Weekly</string>
+    <string name="settings_auto_backup_monthly">Monthly</string>
+    <string name="settings_auto_backup_last">Last backup: %1$s</string>
+    <string name="settings_auto_backup_folder">Destination folder</string>
+    <string name="settings_auto_backup_folder_default">Documents/CallBlocker/ (default)</string>
+    <string name="settings_auto_backup_folder_choose">Choose</string>
+
     <!-- Settings — Info tab -->
     <string name="settings_version_title">Version</string>
-    <string name="settings_version_value">1.2.0</string>
+    <string name="settings_version_value">1.3.0</string>
     <string name="settings_github_title">Source code</string>
     <string name="settings_github_subtitle">Open the repository on GitHub</string>
     <string name="settings_how_it_works_title">How it works</string>
@@ -87,11 +103,22 @@
     <string name="settings_credits_title">App developed by Amlet</string>
     <string name="settings_credits_subtitle">Made with care to protect your privacy</string>
 
+    <!-- Settings — Update check -->
+    <string name="settings_check_updates_title">Check for updates</string>
+    <string name="settings_check_updates_subtitle">Contacts GitHub Releases. Enable to opt in.</string>
+    <string name="settings_check_updates_btn">Check now</string>
+    <string name="settings_check_updates_up_to_date">You have the latest version</string>
+    <string name="settings_check_updates_error">Check failed: %1$s</string>
+
+    <!-- Update dialog -->
+    <string name="update_dialog_title">Update available</string>
+    <string name="update_dialog_body">Version %1$s → %2$s is available on GitHub.</string>
+    <string name="update_dialog_download">Download</string>
+    <string name="update_dialog_later">Later</string>
+
     <!-- ViewModel messages -->
     <string name="msg_contact_added">Contact added successfully</string>
     <string name="msg_contact_updated">Contact updated successfully</string>
-    <string name="edit_contact_title">Edit Contact</string>
-    <string name="edit_contact_description">Modify the contact details in the whitelist.</string>
     <string name="msg_contact_deleted">%1$s removed from whitelist</string>
     <string name="msg_log_cleared">Log cleared</string>
     <string name="msg_export_success">Backup exported successfully (%1$d contacts)</string>
@@ -109,6 +136,10 @@
     <string name="notif_restore_error_title">Restore error</string>
     <string name="notif_channel_blocked_name">Blocked calls</string>
     <string name="notif_blocked_title">Blocked call</string>
+    <string name="notif_auto_backup_success_title">Auto backup completed</string>
+    <string name="notif_auto_backup_success_text">%1$d contacts saved to Documents/CallBlocker/</string>
+    <string name="notif_auto_backup_error_title">Auto backup failed</string>
+    <string name="notif_auto_backup_error_text">Could not write to Documents/CallBlocker/</string>
 
     <!-- Common -->
     <string name="common_add">Add</string>

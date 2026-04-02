@@ -37,6 +37,10 @@
     <string name="add_contact_save">Salva nella whitelist</string>
     <string name="add_contact_cancel">Annulla</string>
 
+    <!-- EditContactScreen -->
+    <string name="edit_contact_title">Modifica Contatto</string>
+    <string name="edit_contact_description">Modifica i dati del contatto nella whitelist.</string>
+
     <!-- CallLogScreen -->
     <string name="call_log_title">Log chiamate bloccate</string>
     <string name="call_log_empty">Nessuna chiamata bloccata</string>
@@ -77,9 +81,21 @@
     <string name="settings_backup_info">Il backup include tutti i contatti della whitelist in formato JSON. Puoi usarlo per trasferire la lista su un altro dispositivo.</string>
     <string name="settings_backup_filename">callblocker_backup.json</string>
 
+    <!-- Settings — Auto backup -->
+    <string name="settings_auto_backup_title">Backup automatico</string>
+    <string name="settings_auto_backup_subtitle">Salva in Documenti/CallBlocker/ sul dispositivo</string>
+    <string name="settings_auto_backup_off">Off</string>
+    <string name="settings_auto_backup_daily">Giornaliero</string>
+    <string name="settings_auto_backup_weekly">Settimanale</string>
+    <string name="settings_auto_backup_monthly">Mensile</string>
+    <string name="settings_auto_backup_last">Ultimo backup: %1$s</string>
+    <string name="settings_auto_backup_folder">Cartella di destinazione</string>
+    <string name="settings_auto_backup_folder_default">Documenti/CallBlocker/ (predefinita)</string>
+    <string name="settings_auto_backup_folder_choose">Scegli</string>
+
     <!-- Settings — Info tab -->
     <string name="settings_version_title">Versione</string>
-    <string name="settings_version_value">1.2.0</string>
+    <string name="settings_version_value">1.3.0</string>
     <string name="settings_github_title">Codice sorgente</string>
     <string name="settings_github_subtitle">Apri il repository su GitHub</string>
     <string name="settings_how_it_works_title">Come funziona</string>
@@ -87,11 +103,22 @@
     <string name="settings_credits_title">App sviluppata da Amlet</string>
     <string name="settings_credits_subtitle">Fatto con cura per proteggere la tua privacy</string>
 
+    <!-- Settings — Update check -->
+    <string name="settings_check_updates_title">Controlla aggiornamenti</string>
+    <string name="settings_check_updates_subtitle">Contatta GitHub Releases. Attiva per abilitare.</string>
+    <string name="settings_check_updates_btn">Controlla ora</string>
+    <string name="settings_check_updates_up_to_date">Hai già la versione più recente</string>
+    <string name="settings_check_updates_error">Controllo fallito: %1$s</string>
+
+    <!-- Update dialog -->
+    <string name="update_dialog_title">Aggiornamento disponibile</string>
+    <string name="update_dialog_body">Versione %1$s → %2$s disponibile su GitHub.</string>
+    <string name="update_dialog_download">Scarica</string>
+    <string name="update_dialog_later">Più tardi</string>
+
     <!-- ViewModel messages -->
     <string name="msg_contact_added">Contatto aggiunto con successo</string>
     <string name="msg_contact_updated">Contatto aggiornato con successo</string>
-    <string name="edit_contact_title">Modifica Contatto</string>
-    <string name="edit_contact_description">Modifica i dati del contatto nella whitelist.</string>
     <string name="msg_contact_deleted">%1$s rimosso dalla whitelist</string>
     <string name="msg_log_cleared">Log svuotato</string>
     <string name="msg_export_success">Backup esportato con successo (%1$d contatti)</string>
@@ -109,6 +136,10 @@
     <string name="notif_restore_error_title">Errore ripristino</string>
     <string name="notif_channel_blocked_name">Chiamate bloccate</string>
     <string name="notif_blocked_title">Chiamata bloccata</string>
+    <string name="notif_auto_backup_success_title">Backup automatico completato</string>
+    <string name="notif_auto_backup_success_text">%1$d contatti salvati in Documenti/CallBlocker/</string>
+    <string name="notif_auto_backup_error_title">Backup automatico fallito</string>
+    <string name="notif_auto_backup_error_text">Impossibile scrivere in Documenti/CallBlocker/</string>
 
     <!-- Common -->
     <string name="common_add">Aggiungi</string>

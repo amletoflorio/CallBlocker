@@ -13,8 +13,8 @@ android {
         applicationId = "com.amlet.callblocker"
         minSdk = 29
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.2.0"
+        versionCode = 3
+        versionName = "1.3.0"
     }
 
     buildFeatures {
@@ -37,7 +37,7 @@ android {
 }
 
 dependencies {
-    // --- Jetpack Compose BOM (gestisce le versioni automaticamente) ---
+    // --- Jetpack Compose BOM ---
     val composeBom = platform("androidx.compose:compose-bom:2024.02.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
@@ -65,8 +65,14 @@ dependencies {
     // --- Serializzazione JSON (backup) ---
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
-    // --- DataStore (preferenze persistenti, es. stato on/off) ---
+    // --- DataStore (preferenze persistenti) ---
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
+    // --- WorkManager (backup automatico periodico) ---
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+
+    // --- DocumentFile (accesso cartelle SAF nel Worker) ---
+    implementation("androidx.documentfile:documentfile:1.0.1")
 
     implementation("androidx.appcompat:appcompat:1.6.1")
 }
