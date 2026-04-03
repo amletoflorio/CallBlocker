@@ -3,10 +3,10 @@ package com.amlet.callblocker.util
 object PhoneUtils {
 
     /**
-     * Normalizza un numero telefonico rimuovendo tutto ciò che non è una cifra.
-     * Rimuove anche gli zeri iniziali ridondanti (es. 0039 → 39).
+     * Normalizes a phone number by stripping everything that is not a digit.
+     * Also removes redundant leading zeros (e.g. 0039 → 39).
      *
-     * Esempi:
+     * Examples:
      *   "+39 02 1234567"    → "390212345678"
      *   "02-123.456"        → "02123456"
      *   "(+1) 800-555-0199" → "18005550199"
@@ -18,30 +18,28 @@ object PhoneUtils {
     }
 
     /**
-     * Formatta un numero per la visualizzazione riconoscendo i prefissi
-     * internazionali più comuni (IT, DE, FR, ES, US/CA, UK, ecc.).
+     * Formats a number for display, recognising the most common international
+     * prefixes (IT, DE, FR, ES, US/CA, UK, etc.).
      *
-     * Se il numero inizia con "+" o ha un prefisso riconoscibile viene
-     * formattato secondo le convenzioni del paese. Altrimenti viene
-     * restituito così com'è.
+     * If the number starts with "+" or has a recognisable prefix it is
+     * formatted according to the country's conventions. Otherwise returned as-is.
      */
     fun formatForDisplay(number: String): String {
         val digits = number.replace(Regex("[^0-9+]"), "")
 
-        // Normalizza eventuale prefisso "00" → "+"
+        // Normalise "00" prefix → "+"
         val normalized = if (digits.startsWith("00")) "+${digits.drop(2)}" else digits
 
         return when {
-            // ── Internazionale con prefisso esplicito ────────────────────────
-            normalized.startsWith("+39") -> formatIT(normalized.drop(3))   // Italia
-            normalized.startsWith("+49") -> formatDE(normalized.drop(3))   // Germania
-            normalized.startsWith("+33") -> formatFR(normalized.drop(3))   // Francia
-            normalized.startsWith("+34") -> formatES(normalized.drop(3))   // Spagna
+            normalized.startsWith("+39") -> formatIT(normalized.drop(3))   // Italy
+            normalized.startsWith("+49") -> formatDE(normalized.drop(3))   // Germany
+            normalized.startsWith("+33") -> formatFR(normalized.drop(3))   // France
+            normalized.startsWith("+34") -> formatES(normalized.drop(3))   // Spain
             normalized.startsWith("+1")  -> formatNANP(normalized.drop(2)) // USA/Canada
             normalized.startsWith("+44") -> formatUK(normalized.drop(3))   // UK
-            normalized.startsWith("+")   -> formatGeneric(normalized)       // Altro internazionale
+            normalized.startsWith("+")   -> formatGeneric(normalized)       // Other international
 
-            // ── Numeri locali italiani (senza prefisso) ──────────────────────
+            // Local Italian numbers (no prefix)
             number.length in 9..10 && (number.startsWith("3") || number.startsWith("0")) ->
                 formatIT(number)
 
@@ -49,16 +47,16 @@ object PhoneUtils {
         }
     }
 
-    // ── Formattatori per paese ────────────────────────────────────────────────
+    // ── Country formatters ────────────────────────────────────────────────────
 
     /** IT: +39 02 1234 5678 / +39 333 123 4567 */
     private fun formatIT(local: String): String {
         val d = local.trimStart('0')
         return when {
-            // Cellulare (3xx): +39 3XX XXX XXXX
+            // Mobile (3xx): +39 3XX XXX XXXX
             d.length == 10 && d.startsWith("3") ->
                 "+39 ${d.take(3)} ${d.drop(3).take(3)} ${d.drop(6)}"
-            // Fisso Milano/Roma (02/06 + 8 cifre): +39 02 XXXX XXXX
+            // Landline (02/06 + 8 digits): +39 02 XXXX XXXX
             d.length >= 9 ->
                 "+39 ${d.take(2)} ${d.drop(2).take(4)} ${d.drop(6)}"
             else -> "+39 $local"
@@ -112,14 +110,14 @@ object PhoneUtils {
         }
     }
 
-    /** Generico internazionale: raggruppa a blocchi di 3 */
+    /** Generic international: groups into blocks of 3 */
     private fun formatGeneric(number: String): String {
         val prefix = number.takeWhile { it == '+' || it.isDigit() && number.indexOf(it) < 4 }
         val rest = number.drop(prefix.length)
         return "$prefix ${rest.chunked(3).joinToString(" ")}".trim()
     }
 
-    /** Valida che una stringa contenga almeno 6 cifre (numero minimo valido) */
+    /** Validates that a string contains at least 6 digits (minimum valid number) */
     fun isValid(number: String): Boolean {
         return normalize(number).length >= 6
     }

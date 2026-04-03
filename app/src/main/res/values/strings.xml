@@ -55,6 +55,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_tab_protection">Protection</string>
     <string name="settings_tab_backup">Backup</string>
+    <string name="settings_tab_updates">Updates</string>
     <string name="settings_tab_info">Info</string>
     <string name="settings_back">Back</string>
 
@@ -72,6 +73,18 @@
     <string name="settings_suspend_dialog_cancel">Cancel</string>
     <string name="settings_notify_title">Notify blocked calls</string>
     <string name="settings_notify_subtitle">Receive a notification every time a call is blocked</string>
+
+    <!-- HomeScreen — SIM badge -->
+    <string name="home_sim_badge_sim1">SIM 1 protected</string>
+    <string name="home_sim_badge_sim2">SIM 2 protected</string>
+    <string name="home_sim_badge_both">Both SIMs protected</string>
+
+    <!-- Settings — Dual SIM -->
+    <string name="settings_sim_title">Protected SIM</string>
+    <string name="settings_sim_subtitle">Choose which SIM card(s) to protect</string>
+    <string name="settings_sim_1">SIM 1</string>
+    <string name="settings_sim_2">SIM 2</string>
+    <string name="settings_sim_both">Both</string>
 
     <!-- Settings — Backup tab -->
     <string name="settings_export_title">Export whitelist</string>
@@ -93,9 +106,23 @@
     <string name="settings_auto_backup_folder_default">Documents/CallBlocker/ (default)</string>
     <string name="settings_auto_backup_folder_choose">Choose</string>
 
+    <!-- Settings — Updates tab -->
+    <string name="settings_version_title">Current version</string>
+    <string name="settings_check_updates_title">Auto-check for updates</string>
+    <string name="settings_check_updates_subtitle">Contacts GitHub Releases. Enable to opt in.</string>
+    <string name="settings_check_updates_btn">Check now</string>
+    <string name="settings_check_updates_up_to_date">You have the latest version</string>
+    <string name="settings_check_updates_error">Check failed: %1$s</string>
+    <string name="settings_notify_update_title">Notify available updates</string>
+    <string name="settings_notify_update_subtitle">Show a notification when a new version is found</string>
+
     <!-- Settings — Info tab -->
-    <string name="settings_version_title">Version</string>
-    <string name="settings_version_value">1.3.0</string>
+    <string name="settings_whats_new_title">What\'s new</string>
+    <string name="settings_whats_new_subtitle">See what changed in each version</string>
+    <string name="settings_language_title">Language</string>
+    <string name="settings_language_system">System default</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_it">Italiano</string>
     <string name="settings_github_title">Source code</string>
     <string name="settings_github_subtitle">Open the repository on GitHub</string>
     <string name="settings_how_it_works_title">How it works</string>
@@ -103,18 +130,47 @@
     <string name="settings_credits_title">App developed by Amlet</string>
     <string name="settings_credits_subtitle">Made with care to protect your privacy</string>
 
-    <!-- Settings — Update check -->
-    <string name="settings_check_updates_title">Check for updates</string>
-    <string name="settings_check_updates_subtitle">Contacts GitHub Releases. Enable to opt in.</string>
-    <string name="settings_check_updates_btn">Check now</string>
-    <string name="settings_check_updates_up_to_date">You have the latest version</string>
-    <string name="settings_check_updates_error">Check failed: %1$s</string>
-
     <!-- Update dialog -->
+    <string name="update_notif_text">Version %1$s is available on GitHub</string>
     <string name="update_dialog_title">Update available</string>
     <string name="update_dialog_body">Version %1$s → %2$s is available on GitHub.</string>
     <string name="update_dialog_download">Download</string>
     <string name="update_dialog_later">Later</string>
+
+    <!-- Changelog dialog -->
+    <string name="changelog_title">What\'s new</string>
+    <string name="changelog_type_new">NEW</string>
+    <string name="changelog_type_fix">FIX</string>
+    <string name="changelog_type_improve">IMPROVE</string>
+
+    <!-- Changelog entries — v1.4.0 -->
+    <string name="changelog_1_4_0_1">Dual SIM support: choose which SIM card(s) to protect</string>
+    <string name="changelog_1_4_0_2">Language selector: system default, English, Italian</string>
+    <string name="changelog_1_4_0_3">What\'s new screen with full version history</string>
+    <string name="changelog_1_4_0_4">Dedicated Updates tab with auto-check and notifications</string>
+
+    <!-- Changelog entries — v1.3.0 -->
+    <string name="changelog_1_3_0_1">Automatic backup with configurable interval (daily / weekly / monthly)</string>
+    <string name="changelog_1_3_0_2">Backups saved to Documents/CallBlocker/ with timestamp filename</string>
+    <string name="changelog_1_3_0_3">Update checker via GitHub Releases API with opt-in toggle</string>
+    <string name="changelog_1_3_0_4">Update dialog with release notes and download link</string>
+    <string name="changelog_1_3_0_5">Version now read from BuildConfig instead of static string</string>
+
+    <!-- Changelog entries — v1.2.0 -->
+    <string name="changelog_1_2_0_1">Italian locale support (auto-detected from system)</string>
+    <string name="changelog_1_2_0_2">Improved phone number formatting for IT, DE, FR, ES, UK, US</string>
+    <string name="changelog_1_2_0_3">Whitelist contacts can now be edited</string>
+    <string name="changelog_1_2_0_4">All UI strings extracted to strings.xml</string>
+
+    <!-- Changelog entries — v1.1.0 -->
+    <string name="changelog_1_1_0_1">Fixed toggle state not updating correctly on resume</string>
+    <string name="changelog_1_1_0_2">Fixed toggle: now suspends/resumes protection instead of revoking role</string>
+    <string name="changelog_1_1_0_3">Settings screen refactored with tab layout (Protection / Backup / Info)</string>
+    <string name="changelog_1_1_0_4">In-app snackbar feedback for export/import operations</string>
+    <string name="changelog_1_1_0_5">GitHub link added in Info tab</string>
+
+    <!-- Changelog entries — v1.0.0 -->
+    <string name="changelog_1_0_0_1">Initial release</string>
 
     <!-- ViewModel messages -->
     <string name="msg_contact_added">Contact added successfully</string>

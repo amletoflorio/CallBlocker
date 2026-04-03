@@ -1,5 +1,7 @@
 package com.amlet.callblocker.ui.screens
 
+import android.content.Context
+import android.telephony.SubscriptionManager
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -13,11 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.amlet.callblocker.R
+import com.amlet.callblocker.data.prefs.AppPreferences
 import com.amlet.callblocker.ui.theme.*
 
 @Composable
@@ -30,11 +34,25 @@ fun HomeScreen(
     onNavigateToSettings: () -> Unit,
     onNavigateToCallLog: () -> Unit
 ) {
+    val context = LocalContext.current
+    val prefs = remember { AppPreferences(context) }
+
     val statusColor by animateColorAsState(
         targetValue = if (isServiceEnabled) Emerald500 else Slate400,
         animationSpec = tween(600),
         label = "statusColor"
     )
+
+    // Detect dual-SIM without SimUtils — mirrors ProtectionTab logic
+    val isDualSim = remember {
+        try {
+            val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+            (sm.activeSubscriptionInfoList?.size ?: 1) > 1
+        } catch (e: Exception) {
+            false
+        }
+    }
+    val protectedSim by remember { mutableStateOf(prefs.protectedSim) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
@@ -114,8 +132,17 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
+            // SIM protection badge — only shown on dual-SIM devices while active
+            if (isDualSim && isServiceEnabled) {
+                SimProtectionBadge(protectedSim = protectedSim)
+                Spacer(modifier = Modifier.height(16.dp))
+            } else {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Stats card
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -196,6 +223,38 @@ fun HomeScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SimProtectionBadge(protectedSim: String) {
+    val label = when (protectedSim) {
+        AppPreferences.SIM_1 -> stringResource(R.string.home_sim_badge_sim1)
+        AppPreferences.SIM_2 -> stringResource(R.string.home_sim_badge_sim2)
+        else                 -> stringResource(R.string.home_sim_badge_both)
+    }
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(
+                Icons.Rounded.SimCard,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onPrimaryContainer
+            )
         }
     }
 }

@@ -3,6 +3,7 @@ package com.amlet.callblocker.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.telephony.SubscriptionManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -24,13 +25,15 @@ import com.amlet.callblocker.BuildConfig
 import com.amlet.callblocker.CallBlockerApp
 import com.amlet.callblocker.R
 import com.amlet.callblocker.data.prefs.AppPreferences
+import com.amlet.callblocker.ui.components.ChangelogDialog
+import com.amlet.callblocker.util.LocaleHelper
 import com.amlet.callblocker.util.UpdateChecker
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-private enum class SettingsTab { PROTEZIONE, BACKUP, INFO }
+private enum class SettingsTab { PROTECTION, BACKUP, UPDATES, INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,14 +43,31 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
-    var selectedTab by remember { mutableStateOf(SettingsTab.PROTEZIONE) }
+    val prefs = remember { AppPreferences(context) }
+    // Restore the last selected tab so language change (which calls recreate()) lands back here
+    var selectedTab by remember {
+        mutableStateOf(
+            SettingsTab.entries.getOrElse(prefs.lastSettingsTab) { SettingsTab.PROTECTION }
+        )
+    }
+    var showChangelog by remember { mutableStateOf(false) }
+
+    if (showChangelog) {
+        ChangelogDialog(onDismiss = { showChangelog = false })
+    }
 
     val tabLabels = listOf(
         stringResource(R.string.settings_tab_protection),
         stringResource(R.string.settings_tab_backup),
+        stringResource(R.string.settings_tab_updates),
         stringResource(R.string.settings_tab_info)
     )
-    val tabIcons = listOf(Icons.Rounded.Shield, Icons.Rounded.Backup, Icons.Rounded.Info)
+    val tabIcons = listOf(
+        Icons.Rounded.Shield,
+        Icons.Rounded.Backup,
+        Icons.Rounded.SystemUpdate,
+        Icons.Rounded.Info
+    )
 
     Scaffold(
         topBar = {
@@ -58,17 +78,27 @@ fun SettingsScreen(
                         Icon(Icons.Rounded.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
+                actions = {
+                    IconButton(onClick = { showChangelog = true }) {
+                        Icon(
+                            Icons.Rounded.NewReleases,
+                            contentDescription = stringResource(R.string.changelog_title),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            TabRow(
+            ScrollableTabRow(
                 selectedTabIndex = selectedTab.ordinal,
                 containerColor = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.primary,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) }
+                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+                edgePadding = 0.dp
             ) {
                 SettingsTab.entries.forEachIndexed { index, tab ->
                     Tab(
@@ -81,22 +111,41 @@ fun SettingsScreen(
             }
 
             when (selectedTab) {
-                SettingsTab.PROTEZIONE -> ProtezioneTab(context)
+                SettingsTab.PROTECTION -> ProtectionTab(context)
                 SettingsTab.BACKUP     -> BackupTab(context, onExportBackup, onImportBackup)
-                SettingsTab.INFO       -> InfoTab(context)
+                SettingsTab.UPDATES    -> UpdatesTab(context)
+                SettingsTab.INFO       -> InfoTab(
+                    context = context,
+                    onShowChangelog = { showChangelog = true },
+                    onLanguageChanged = {
+                        prefs.lastSettingsTab = SettingsTab.INFO.ordinal
+                        (context as? android.app.Activity)?.recreate()
+                    }
+                )
             }
         }
     }
 }
 
-// ── Tab: Protezione ───────────────────────────────────────────────────────────
+// ── Tab: Protection ───────────────────────────────────────────────────────────
 
 @Composable
-private fun ProtezioneTab(context: Context) {
+private fun ProtectionTab(context: Context) {
     val prefs = remember { AppPreferences(context) }
     var notifyOnBlock by remember { mutableStateOf(prefs.notifyOnBlock) }
     var suspendUntil by remember { mutableStateOf(prefs.suspendUntil) }
     var showSuspendDialog by remember { mutableStateOf(false) }
+    var protectedSim by remember { mutableStateOf(prefs.protectedSim) }
+
+    // Detect how many SIMs are installed — hide selector on single-SIM devices
+    val simCount = remember {
+        try {
+            val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+            sm.activeSubscriptionInfoList?.size ?: 1
+        } catch (e: Exception) {
+            1
+        }
+    }
 
     if (showSuspendDialog) {
         SuspendDialog(
@@ -116,6 +165,7 @@ private fun ProtezioneTab(context: Context) {
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
+        // ── Suspend protection ───────────────────────────────────────────────
         val isSuspended = suspendUntil > System.currentTimeMillis()
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -165,14 +215,26 @@ private fun ProtezioneTab(context: Context) {
                             Text(stringResource(R.string.settings_suspend_resume))
                         }
                     } else {
-                        listOf("1h" to TimeUnit.HOURS.toMillis(1), "3h" to TimeUnit.HOURS.toMillis(3), "24h" to TimeUnit.HOURS.toMillis(24))
-                            .forEach { (label, ms) ->
-                                OutlinedButton(
-                                    onClick = { val until = System.currentTimeMillis() + ms; prefs.suspendUntil = until; suspendUntil = until },
-                                    modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)
-                                ) { Text(label) }
-                            }
-                        OutlinedButton(onClick = { showSuspendDialog = true }, modifier = Modifier.weight(1f), shape = RoundedCornerShape(12.dp)) {
+                        listOf(
+                            "1h"  to TimeUnit.HOURS.toMillis(1),
+                            "3h"  to TimeUnit.HOURS.toMillis(3),
+                            "24h" to TimeUnit.HOURS.toMillis(24)
+                        ).forEach { (label, ms) ->
+                            OutlinedButton(
+                                onClick = {
+                                    val until = System.currentTimeMillis() + ms
+                                    prefs.suspendUntil = until
+                                    suspendUntil = until
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(12.dp)
+                            ) { Text(label) }
+                        }
+                        OutlinedButton(
+                            onClick = { showSuspendDialog = true },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
                             Icon(Icons.Rounded.Schedule, null, modifier = Modifier.size(16.dp))
                         }
                     }
@@ -180,6 +242,7 @@ private fun ProtezioneTab(context: Context) {
             }
         }
 
+        // ── Notify blocked calls ─────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -196,6 +259,51 @@ private fun ProtezioneTab(context: Context) {
                 Switch(checked = notifyOnBlock, onCheckedChange = { prefs.notifyOnBlock = it; notifyOnBlock = it })
             }
         }
+
+        // ── Dual SIM selector — only shown on multi-SIM devices ─────────────
+        if (simCount > 1) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.SimCard, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(stringResource(R.string.settings_sim_title), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(R.string.settings_sim_subtitle),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+
+                    val simOptions = listOf(
+                        AppPreferences.SIM_1    to stringResource(R.string.settings_sim_1),
+                        AppPreferences.SIM_2    to stringResource(R.string.settings_sim_2),
+                        AppPreferences.SIM_BOTH to stringResource(R.string.settings_sim_both)
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        simOptions.forEach { (value, label) ->
+                            FilterChip(
+                                selected = protectedSim == value,
+                                onClick = {
+                                    protectedSim = value
+                                    prefs.protectedSim = value
+                                },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
@@ -217,10 +325,8 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
         uri?.let { onImportBackup(context, it) }
     }
 
-    // Folder picker per il backup automatico — richiede permesso persistente
     val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
-            // Acquisisce il permesso persistente così il Worker può accedere anche in background
             context.contentResolver.takePersistableUriPermission(
                 uri,
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
@@ -231,7 +337,6 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
         }
     }
 
-    // Opzioni frequenza: 0 = disabilitato, 1, 7, 30
     val intervalOptions = listOf(
         0  to stringResource(R.string.settings_auto_backup_off),
         1  to stringResource(R.string.settings_auto_backup_daily),
@@ -239,11 +344,9 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
         30 to stringResource(R.string.settings_auto_backup_monthly)
     )
 
-    // Etichetta leggibile della cartella selezionata
     val folderLabel = folderUriString?.let { uriStr ->
         runCatching {
             val uri = Uri.parse(uriStr)
-            // Estrae solo il nome della cartella dall'URI SAF (es. "Documenti/CallBackup")
             uri.lastPathSegment?.substringAfterLast(':') ?: uriStr
         }.getOrNull()
     }
@@ -254,7 +357,7 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Backup automatico ────────────────────────────────────────────────
+        // ── Auto backup ──────────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -271,7 +374,6 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
                     }
                 }
 
-                // Chip di selezione frequenza
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -290,7 +392,6 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
                     }
                 }
 
-                // Selezione cartella — visibile solo se il backup automatico è abilitato
                 if (intervalDays > 0) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
@@ -299,37 +400,24 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(
-                            Icons.Rounded.Folder, null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.settings_auto_backup_folder),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
+                            Text(stringResource(R.string.settings_auto_backup_folder), style = MaterialTheme.typography.bodyMedium)
                             Text(
                                 folderLabel ?: stringResource(R.string.settings_auto_backup_folder_default),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        OutlinedButton(
-                            onClick = { folderPickerLauncher.launch(null) },
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                        OutlinedButton(onClick = { folderPickerLauncher.launch(null) }, shape = RoundedCornerShape(12.dp)) {
                             Text(stringResource(R.string.settings_auto_backup_folder_choose))
                         }
                     }
                 }
 
-                // Ultima esportazione automatica
                 if (lastBackupAt > 0L) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CheckCircle, null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             stringResource(R.string.settings_auto_backup_last, formatDateTime(lastBackupAt)),
@@ -341,7 +429,7 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
             }
         }
 
-        // ── Backup manuale ───────────────────────────────────────────────────
+        // ── Manual backup ────────────────────────────────────────────────────
         SettingsCard(Icons.Rounded.Upload, stringResource(R.string.settings_export_title), stringResource(R.string.settings_export_subtitle),
             onClick = { exportLauncher.launch(filename) })
         SettingsCard(Icons.Rounded.Download, stringResource(R.string.settings_import_title), stringResource(R.string.settings_import_subtitle),
@@ -361,20 +449,20 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
     }
 }
 
-// ── Tab: Info ─────────────────────────────────────────────────────────────────
+// ── Tab: Updates ──────────────────────────────────────────────────────────────
 
 @Composable
-private fun InfoTab(context: Context) {
+private fun UpdatesTab(context: Context) {
     val prefs = remember { AppPreferences(context) }
     val scope = rememberCoroutineScope()
 
     var checkUpdatesEnabled by remember { mutableStateOf(prefs.checkUpdatesEnabled) }
+    var notifyOnUpdate by remember { mutableStateOf(prefs.notifyOnUpdate) }
     var updateDialogInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     var updateChecking by remember { mutableStateOf(false) }
     var updateUpToDate by remember { mutableStateOf(false) }
     var updateError by remember { mutableStateOf<String?>(null) }
 
-    // Dialog: aggiornamento disponibile
     updateDialogInfo?.let { info ->
         AlertDialog(
             onDismissRequest = { updateDialogInfo = null },
@@ -398,9 +486,7 @@ private fun InfoTab(context: Context) {
                 }) { Text(stringResource(R.string.update_dialog_download)) }
             },
             dismissButton = {
-                TextButton(onClick = { updateDialogInfo = null }) {
-                    Text(stringResource(R.string.update_dialog_later))
-                }
+                TextButton(onClick = { updateDialogInfo = null }) { Text(stringResource(R.string.update_dialog_later)) }
             }
         )
     }
@@ -411,48 +497,72 @@ private fun InfoTab(context: Context) {
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Versione + controllo aggiornamenti ───────────────────────────────
+        // ── Current version ──────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.NewReleases, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_version_title), style = MaterialTheme.typography.titleMedium)
+                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+
+        // ── Update settings ──────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.NewReleases, null,
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+
+                // Toggle: auto check
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Autorenew, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_version_title), style = MaterialTheme.typography.titleMedium)
-                        Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                // Toggle controllo aggiornamenti
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_check_updates_title),
-                            style = MaterialTheme.typography.bodyMedium)
+                        Text(stringResource(R.string.settings_check_updates_title), style = MaterialTheme.typography.bodyMedium)
                         Text(stringResource(R.string.settings_check_updates_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(
                         checked = checkUpdatesEnabled,
                         onCheckedChange = {
                             checkUpdatesEnabled = it
                             prefs.checkUpdatesEnabled = it
-                            // Reset stati UI quando si disabilita
-                            if (!it) { updateUpToDate = false; updateError = null }
+                            if (!it) { notifyOnUpdate = false; prefs.notifyOnUpdate = false; updateUpToDate = false; updateError = null }
+                            (context.applicationContext as com.amlet.callblocker.CallBlockerApp).scheduleUpdateCheckIfNeeded()
                         }
                     )
                 }
 
-                // Pulsante "Controlla ora"
+                // Toggle: notify on update (only when auto-check is enabled)
                 if (checkUpdatesEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(stringResource(R.string.settings_notify_update_title), style = MaterialTheme.typography.bodyMedium)
+                            Text(stringResource(R.string.settings_notify_update_subtitle),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(
+                            checked = notifyOnUpdate,
+                            onCheckedChange = { notifyOnUpdate = it; prefs.notifyOnUpdate = it }
+                        )
+                    }
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // Check now button
                     Button(
                         onClick = {
                             updateUpToDate = false
@@ -460,15 +570,9 @@ private fun InfoTab(context: Context) {
                             updateChecking = true
                             scope.launch {
                                 when (val result = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)) {
-                                    is UpdateChecker.UpdateResult.UpdateAvailable -> {
-                                        updateDialogInfo = result.info
-                                    }
-                                    is UpdateChecker.UpdateResult.UpToDate -> {
-                                        updateUpToDate = true
-                                    }
-                                    is UpdateChecker.UpdateResult.Error -> {
-                                        updateError = result.message
-                                    }
+                                    is UpdateChecker.UpdateResult.UpdateAvailable -> updateDialogInfo = result.info
+                                    is UpdateChecker.UpdateResult.UpToDate        -> updateUpToDate = true
+                                    is UpdateChecker.UpdateResult.Error           -> updateError = result.message
                                 }
                                 updateChecking = false
                             }
@@ -478,8 +582,7 @@ private fun InfoTab(context: Context) {
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (updateChecking) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary)
                             Spacer(modifier = Modifier.width(8.dp))
                         } else {
@@ -490,34 +593,98 @@ private fun InfoTab(context: Context) {
                     }
 
                     when {
-                        updateUpToDate -> {
-                            Row(verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Rounded.CheckCircle, null,
-                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                                Text(stringResource(R.string.settings_check_updates_up_to_date),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary)
-                            }
+                        updateUpToDate -> Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                            Text(stringResource(R.string.settings_check_updates_up_to_date),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
                         }
-                        updateError != null -> {
-                            Row(verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Rounded.Warning, null,
-                                    tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                                Text(stringResource(R.string.settings_check_updates_error, updateError!!),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error)
-                            }
+                        updateError != null -> Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
+                            Text(stringResource(R.string.settings_check_updates_error, updateError!!),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                         }
                     }
                 }
             }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+}
+
+// ── Tab: Info ─────────────────────────────────────────────────────────────────
+
+@Composable
+private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageChanged: () -> Unit) {
+    val prefs = remember { AppPreferences(context) }
+    var appLanguage by remember { mutableStateOf(prefs.appLanguage) }
+    var showLangDialog by remember { mutableStateOf(false) }
+
+    if (showLangDialog) {
+        LanguageDialog(
+            current = appLanguage,
+            onSelect = { lang ->
+                appLanguage = lang
+                prefs.appLanguage = lang
+                LocaleHelper.applyLocale(context, lang)
+                showLangDialog = false
+                onLanguageChanged()
+            },
+            onDismiss = { showLangDialog = false }
+        )
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── What's new ───────────────────────────────────────────────────────
+        SettingsCard(
+            icon = Icons.Rounded.NewReleases,
+            title = stringResource(R.string.settings_whats_new_title),
+            subtitle = stringResource(R.string.settings_whats_new_subtitle),
+            onClick = onShowChangelog
+        )
+
+        // ── Language ─────────────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            onClick = { showLangDialog = true }
+        ) {
+            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_language_title), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        when (appLanguage) {
+                            AppPreferences.LANG_EN -> stringResource(R.string.settings_language_en)
+                            AppPreferences.LANG_IT -> stringResource(R.string.settings_language_it)
+                            else                   -> stringResource(R.string.settings_language_system)
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
+        // ── Source code ──────────────────────────────────────────────────────
         SettingsCard(Icons.Rounded.Code, stringResource(R.string.settings_github_title), stringResource(R.string.settings_github_subtitle),
             onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/amletoflorio/CallBlocker"))) })
 
+        // ── How it works ─────────────────────────────────────────────────────
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.padding(16.dp)) {
@@ -530,6 +697,8 @@ private fun InfoTab(context: Context) {
                 }
             }
         }
+
+        // ── Credits ──────────────────────────────────────────────────────────
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -541,11 +710,47 @@ private fun InfoTab(context: Context) {
                 }
             }
         }
+
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
-// ── Dialog sospensione ────────────────────────────────────────────────────────
+// ── Language dialog ───────────────────────────────────────────────────────────
+
+@Composable
+private fun LanguageDialog(current: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
+    val options = listOf(
+        AppPreferences.LANG_SYSTEM to stringResource(R.string.settings_language_system),
+        AppPreferences.LANG_EN     to stringResource(R.string.settings_language_en),
+        AppPreferences.LANG_IT     to stringResource(R.string.settings_language_it),
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Language, null) },
+        title = { Text(stringResource(R.string.settings_language_title)) },
+        text = {
+            Column {
+                options.forEach { (value, label) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(selected = current == value, onClick = { onSelect(value) })
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        }
+    )
+}
+
+// ── Suspend dialog ────────────────────────────────────────────────────────────
 
 @Composable
 private fun SuspendDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
@@ -579,8 +784,10 @@ private fun SuspendDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
             }
         },
         confirmButton = {
-            Button(onClick = { onConfirm(TimeUnit.DAYS.toMillis(days.toLong()) + TimeUnit.HOURS.toMillis(hours.toLong())) },
-                enabled = days > 0 || hours > 0) { Text(stringResource(R.string.settings_suspend_dialog_confirm)) }
+            Button(
+                onClick = { onConfirm(TimeUnit.DAYS.toMillis(days.toLong()) + TimeUnit.HOURS.toMillis(hours.toLong())) },
+                enabled = days > 0 || hours > 0
+            ) { Text(stringResource(R.string.settings_suspend_dialog_confirm)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_suspend_dialog_cancel)) }
@@ -599,7 +806,8 @@ private fun formatDateTime(timestampMs: Long): String =
 @Composable
 private fun SettingsCard(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    title: String, subtitle: String,
+    title: String,
+    subtitle: String,
     onClick: () -> Unit,
     isDestructive: Boolean = false
 ) {

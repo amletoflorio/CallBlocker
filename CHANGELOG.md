@@ -4,7 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.3.0] - Latest
+## [v1.4.0] - Latest
+
+### New Features
+- **Dual SIM support** — choose which SIM card(s) to protect: SIM 1, SIM 2, or both; selector is hidden automatically on single-SIM devices
+- **SIM badge on Home screen** — shows which SIM(s) are currently protected when the service is active and a dual-SIM device is detected
+- **Language selector** — choose between system default, English, and Italian; the app applies the change immediately via `Activity.recreate()` without requiring a manual restart
+- **What's new screen** — in-app changelog accessible from the Info tab and from the top bar icon in Settings; shows full version history with color-coded NEW / FIX / IMPROVE badges
+- **Dedicated Updates tab** — moved update check out of the Info tab into its own tab in Settings, with auto-check every 24 h via `UpdateCheckWorker` (WorkManager) and an opt-in notification when a new version is available on GitHub
+
+### Improvements
+- Settings screen restores the previously selected tab after a language change (no longer resets to the Protection tab)
+
+### Configuration
+- Added `READ_PHONE_STATE` permission to `AndroidManifest.xml` (used for dual-SIM detection via `SubscriptionManager`)
+- Added `LocaleHelper` utility for locale wrapping in `attachBaseContext`
+- Added `UpdateCheckWorker` with network constraint and automatic retry on error
+- Bumped `versionCode` to 4 and `versionName` to `1.4.0`
+
+---
+
+## [v1.3.0]
 
 ### New Features
 - **Automatic backup with WorkManager** — periodic JSON export every 1, 7, or 30 days (configurable), saved to `Documents/CallBlocker/` on the device

@@ -27,7 +27,7 @@ class CallBlockerService : CallScreeningService() {
     private lateinit var prefs: AppPreferences
     private lateinit var db: AppDatabase
 
-    // Scope per operazioni async (salvataggio log) — annullato in onDestroy
+    // Coroutine scope for async operations (log writes) — cancelled in onDestroy
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -44,38 +44,71 @@ class CallBlockerService : CallScreeningService() {
 
     override fun onScreenCall(callDetails: Call.Details) {
         val rawNumber = callDetails.handle?.schemeSpecificPart
-        android.util.Log.d("CallBlocker", "=== CHIAMATA IN ARRIVO: $rawNumber ===")
+        android.util.Log.d("CallBlocker", "=== INCOMING CALL: $rawNumber ===")
 
         val response = try {
-            if (prefs.isSuspended) {
-                android.util.Log.d("CallBlocker", "Protezione sospesa → CONSENTO")
-                buildAllowResponse()
-            } else if (rawNumber.isNullOrBlank()) {
-                android.util.Log.d("CallBlocker", "Numero vuoto → BLOCCO")
-                logBlockedCall("Numero sconosciuto")
-                notifyBlocked("Numero sconosciuto")
-                buildBlockResponse()
-            } else {
-                val inContacts = isInSystemContacts(rawNumber)
-                val inWhitelist = runBlocking { repository.findByNumber(rawNumber) != null }
-                android.util.Log.d("CallBlocker", "In rubrica: $inContacts | In whitelist: $inWhitelist")
-
-                if (inContacts || inWhitelist) {
-                    android.util.Log.d("CallBlocker", "→ CONSENTO")
+            when {
+                prefs.isSuspended -> {
+                    android.util.Log.d("CallBlocker", "Protection suspended → ALLOW")
                     buildAllowResponse()
-                } else {
-                    android.util.Log.d("CallBlocker", "→ BLOCCO")
-                    logBlockedCall(rawNumber)
-                    notifyBlocked(rawNumber)
+                }
+                rawNumber.isNullOrBlank() -> {
+                    android.util.Log.d("CallBlocker", "Empty number → BLOCK")
+                    logBlockedCall("Unknown number")
+                    notifyBlocked("Unknown number")
                     buildBlockResponse()
+                }
+                !shouldProtectThisSim(callDetails) -> {
+                    android.util.Log.d("CallBlocker", "SIM not protected → ALLOW")
+                    buildAllowResponse()
+                }
+                else -> {
+                    val inContacts = isInSystemContacts(rawNumber)
+                    val inWhitelist = runBlocking { repository.findByNumber(rawNumber) != null }
+                    android.util.Log.d("CallBlocker", "In contacts: $inContacts | In whitelist: $inWhitelist")
+
+                    if (inContacts || inWhitelist) {
+                        android.util.Log.d("CallBlocker", "→ ALLOW")
+                        buildAllowResponse()
+                    } else {
+                        android.util.Log.d("CallBlocker", "→ BLOCK")
+                        logBlockedCall(rawNumber)
+                        notifyBlocked(rawNumber)
+                        buildBlockResponse()
+                    }
                 }
             }
         } catch (e: Exception) {
-            android.util.Log.e("CallBlocker", "Errore: ${e.message}")
+            android.util.Log.e("CallBlocker", "Error: ${e.message}")
             buildAllowResponse()
         }
 
         respondToCall(callDetails, response)
+    }
+
+    /**
+     * Returns true if the call's SIM slot matches the user's protection preference.
+     * Always returns true on single-SIM devices or when "both" is selected.
+     */
+    private fun shouldProtectThisSim(callDetails: Call.Details): Boolean {
+        val protectedSim = prefs.protectedSim
+        if (protectedSim == AppPreferences.SIM_BOTH) return true
+
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val accountHandle = callDetails.accountHandle ?: return true
+                val id = accountHandle.id
+                when (protectedSim) {
+                    AppPreferences.SIM_1 -> id.endsWith("0") || id.contains("slot0") || id.contains("SIM1")
+                    AppPreferences.SIM_2 -> id.endsWith("1") || id.contains("slot1") || id.contains("SIM2")
+                    else -> true
+                }
+            } else {
+                true // Cannot determine SIM slot on older APIs — protect all
+            }
+        } catch (e: Exception) {
+            true // Fail safe: protect the call
+        }
     }
 
     private fun isInSystemContacts(number: String): Boolean {
@@ -107,19 +140,19 @@ class CallBlockerService : CallScreeningService() {
             .setRejectCall(false)
             .build()
 
-    // ── Log ──────────────────────────────────────────────────────────────────
+    // ── Call log ─────────────────────────────────────────────────────────────
 
     private fun logBlockedCall(number: String) {
         serviceScope.launch {
             try {
                 db.blockedCallDao().insert(BlockedCallEntity(phoneNumber = number))
             } catch (e: Exception) {
-                android.util.Log.e("CallBlocker", "Errore salvataggio log: ${e.message}")
+                android.util.Log.e("CallBlocker", "Log write error: ${e.message}")
             }
         }
     }
 
-    // ── Notifiche ────────────────────────────────────────────────────────────
+    // ── Notifications ─────────────────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -128,7 +161,7 @@ class CallBlockerService : CallScreeningService() {
                 AppPreferences.NOTIFICATION_CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = "Notifica quando una chiamata viene bloccata"
+                description = "Notification when a call is blocked"
             }
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
@@ -152,8 +185,8 @@ class CallBlockerService : CallScreeningService() {
 
         val notification = NotificationCompat.Builder(this, AppPreferences.NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Chiamata bloccata")
-            .setContentText("Numero: $number")
+            .setContentTitle(getString(R.string.notif_blocked_title))
+            .setContentText(number)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

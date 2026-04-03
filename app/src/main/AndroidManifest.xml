@@ -1,28 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ═══════════════════════════════════════
-         PERMESSI
-    ═══════════════════════════════════════ -->
-
-    <!-- Lettura rubrica di sistema -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
-
-    <!-- Notifiche (obbligatorio su Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-
-    <!-- Registro chiamate (per mostrare le chiamate bloccate) -->
     <uses-permission android:name="android.permission.READ_CALL_LOG" />
-
-    <!-- Storage per backup JSON - API < 29 -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     <uses-permission
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
-
-    <!-- Internet per il controllo aggiornamenti (opt-in dall'utente) -->
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
@@ -34,7 +22,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.CallBlocker">
 
-        <!-- Activity principale -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -45,9 +32,6 @@
             </intent-filter>
         </activity>
 
-        <!-- ═══════════════════════════════════════
-             CALL SCREENING SERVICE
-        ═══════════════════════════════════════ -->
         <service
             android:name=".service.CallBlockerService"
             android:exported="true"

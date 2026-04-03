@@ -32,7 +32,7 @@ class AutoBackupWorker(
 
             val folderUriString = prefs.autoBackupFolderUri
             val result = if (!folderUriString.isNullOrBlank()) {
-                // ── Cartella scelta dall'utente via SAF ──────────────────────
+                // User-selected folder via SAF
                 val folderUri = Uri.parse(folderUriString)
                 val folder = DocumentFile.fromTreeUri(context, folderUri)
                 val newFile = folder?.createFile("application/json", filename)
@@ -41,11 +41,11 @@ class AutoBackupWorker(
                 if (fileUri != null) {
                     BackupManager.exportToUri(context, fileUri, contacts)
                 } else {
-                    Result.failure().also { NotificationHelper.notifyAutoBackupError(context) }
+                    NotificationHelper.notifyAutoBackupError(context)
                     return Result.failure()
                 }
             } else {
-                // ── Fallback: Documents/CallBlocker/ ─────────────────────────
+                // Fallback: Documents/CallBlocker/
                 val dir = File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS),
                     "CallBlocker"

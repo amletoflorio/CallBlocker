@@ -2,6 +2,7 @@ package com.amlet.callblocker
 
 import android.Manifest
 import android.app.role.RoleManager
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -10,26 +11,32 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import com.amlet.callblocker.ui.AppNavigation
 import com.amlet.callblocker.ui.theme.CallBlockerTheme
+import com.amlet.callblocker.util.LocaleHelper
 
 class MainActivity : ComponentActivity() {
 
-    // True = il ruolo Call Screening è assegnato a questa app
+    // True = the Call Screening role is held by this app
     private var isRoleHeld by mutableStateOf(false)
 
     private val roleRequestLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        // Dopo il dialog di sistema aggiorna lo stato reale del ruolo
+        // After the system dialog, update the actual role state
         checkRoleStatus()
     }
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { /* gestione opzionale */ }
+    ) { /* optional handling */ }
+
+    override fun attachBaseContext(newBase: Context) {
+        // Apply the saved language preference before the Activity inflates any views
+        super.attachBaseContext(LocaleHelper.wrapContext(newBase))
+    }
 
     override fun onResume() {
         super.onResume()
-        // Aggiorna sempre al ritorno nell'app (es. dopo revoca manuale del ruolo)
+        // Always refresh when returning to the app (e.g. after manual role revocation)
         checkRoleStatus()
     }
 
@@ -42,6 +49,10 @@ class MainActivity : ComponentActivity() {
         )
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // Request READ_PHONE_STATE for dual-SIM detection
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+            permissions.add(Manifest.permission.READ_PHONE_STATE)
         }
         permissionLauncher.launch(permissions.toTypedArray())
 

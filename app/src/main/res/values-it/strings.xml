@@ -55,6 +55,7 @@
     <string name="settings_title">Impostazioni</string>
     <string name="settings_tab_protection">Protezione</string>
     <string name="settings_tab_backup">Backup</string>
+    <string name="settings_tab_updates">Aggiornamenti</string>
     <string name="settings_tab_info">Info</string>
     <string name="settings_back">Indietro</string>
 
@@ -72,6 +73,18 @@
     <string name="settings_suspend_dialog_cancel">Annulla</string>
     <string name="settings_notify_title">Notifica chiamate bloccate</string>
     <string name="settings_notify_subtitle">Ricevi una notifica ogni volta che una chiamata viene bloccata</string>
+
+    <!-- HomeScreen — SIM badge -->
+    <string name="home_sim_badge_sim1">SIM 1 protetta</string>
+    <string name="home_sim_badge_sim2">SIM 2 protetta</string>
+    <string name="home_sim_badge_both">Entrambe le SIM protette</string>
+
+    <!-- Settings — Dual SIM -->
+    <string name="settings_sim_title">SIM protetta</string>
+    <string name="settings_sim_subtitle">Scegli quale SIM proteggere</string>
+    <string name="settings_sim_1">SIM 1</string>
+    <string name="settings_sim_2">SIM 2</string>
+    <string name="settings_sim_both">Entrambe</string>
 
     <!-- Settings — Backup tab -->
     <string name="settings_export_title">Esporta whitelist</string>
@@ -93,9 +106,23 @@
     <string name="settings_auto_backup_folder_default">Documenti/CallBlocker/ (predefinita)</string>
     <string name="settings_auto_backup_folder_choose">Scegli</string>
 
+    <!-- Settings — Updates tab -->
+    <string name="settings_version_title">Versione attuale</string>
+    <string name="settings_check_updates_title">Controlla aggiornamenti automaticamente</string>
+    <string name="settings_check_updates_subtitle">Contatta GitHub Releases. Attiva per abilitare.</string>
+    <string name="settings_check_updates_btn">Controlla ora</string>
+    <string name="settings_check_updates_up_to_date">Hai già la versione più recente</string>
+    <string name="settings_check_updates_error">Controllo fallito: %1$s</string>
+    <string name="settings_notify_update_title">Notifica aggiornamenti disponibili</string>
+    <string name="settings_notify_update_subtitle">Mostra una notifica quando viene trovata una nuova versione</string>
+
     <!-- Settings — Info tab -->
-    <string name="settings_version_title">Versione</string>
-    <string name="settings_version_value">1.3.0</string>
+    <string name="settings_whats_new_title">Novità</string>
+    <string name="settings_whats_new_subtitle">Scopri cosa è cambiato in ogni versione</string>
+    <string name="settings_language_title">Lingua</string>
+    <string name="settings_language_system">Predefinito di sistema</string>
+    <string name="settings_language_en">English</string>
+    <string name="settings_language_it">Italiano</string>
     <string name="settings_github_title">Codice sorgente</string>
     <string name="settings_github_subtitle">Apri il repository su GitHub</string>
     <string name="settings_how_it_works_title">Come funziona</string>
@@ -103,18 +130,47 @@
     <string name="settings_credits_title">App sviluppata da Amlet</string>
     <string name="settings_credits_subtitle">Fatto con cura per proteggere la tua privacy</string>
 
-    <!-- Settings — Update check -->
-    <string name="settings_check_updates_title">Controlla aggiornamenti</string>
-    <string name="settings_check_updates_subtitle">Contatta GitHub Releases. Attiva per abilitare.</string>
-    <string name="settings_check_updates_btn">Controlla ora</string>
-    <string name="settings_check_updates_up_to_date">Hai già la versione più recente</string>
-    <string name="settings_check_updates_error">Controllo fallito: %1$s</string>
-
     <!-- Update dialog -->
+    <string name="update_notif_text">Versione %1$s disponibile su GitHub</string>
     <string name="update_dialog_title">Aggiornamento disponibile</string>
     <string name="update_dialog_body">Versione %1$s → %2$s disponibile su GitHub.</string>
     <string name="update_dialog_download">Scarica</string>
     <string name="update_dialog_later">Più tardi</string>
+
+    <!-- Changelog dialog -->
+    <string name="changelog_title">Novità</string>
+    <string name="changelog_type_new">NUOVO</string>
+    <string name="changelog_type_fix">FIX</string>
+    <string name="changelog_type_improve">MIGLIORIA</string>
+
+    <!-- Changelog entries — v1.4.0 -->
+    <string name="changelog_1_4_0_1">Supporto Dual SIM: scegli quale SIM proteggere</string>
+    <string name="changelog_1_4_0_2">Selettore lingua: sistema, inglese, italiano</string>
+    <string name="changelog_1_4_0_3">Schermata Novità con cronologia completa delle versioni</string>
+    <string name="changelog_1_4_0_4">Tab Aggiornamenti dedicata con controllo automatico e notifiche</string>
+
+    <!-- Changelog entries — v1.3.0 -->
+    <string name="changelog_1_3_0_1">Backup automatico con intervallo configurabile (giornaliero / settimanale / mensile)</string>
+    <string name="changelog_1_3_0_2">Backup salvati in Documenti/CallBlocker/ con nome file timestamp</string>
+    <string name="changelog_1_3_0_3">Controllo aggiornamenti via GitHub Releases API con toggle opt-in</string>
+    <string name="changelog_1_3_0_4">Dialog aggiornamento con note di rilascio e link download</string>
+    <string name="changelog_1_3_0_5">Versione letta da BuildConfig invece di stringa statica</string>
+
+    <!-- Changelog entries — v1.2.0 -->
+    <string name="changelog_1_2_0_1">Supporto lingua italiana (rilevata automaticamente dal sistema)</string>
+    <string name="changelog_1_2_0_2">Formattazione numeri migliorata per IT, DE, FR, ES, UK, US</string>
+    <string name="changelog_1_2_0_3">I contatti della whitelist ora sono modificabili</string>
+    <string name="changelog_1_2_0_4">Tutte le stringhe UI estratte in strings.xml</string>
+
+    <!-- Changelog entries — v1.1.0 -->
+    <string name="changelog_1_1_0_1">Risolto stato toggle non aggiornato correttamente al resume</string>
+    <string name="changelog_1_1_0_2">Risolto toggle: ora sospende/riprende la protezione invece di revocare il ruolo</string>
+    <string name="changelog_1_1_0_3">Schermata impostazioni rifatta con layout a tab (Protezione / Backup / Info)</string>
+    <string name="changelog_1_1_0_4">Feedback snackbar in-app per operazioni di export/import</string>
+    <string name="changelog_1_1_0_5">Link GitHub aggiunto nel tab Info</string>
+
+    <!-- Changelog entries — v1.0.0 -->
+    <string name="changelog_1_0_0_1">Prima versione</string>
 
     <!-- ViewModel messages -->
     <string name="msg_contact_added">Contatto aggiunto con successo</string>

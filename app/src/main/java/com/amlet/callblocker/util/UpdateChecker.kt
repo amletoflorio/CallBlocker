@@ -24,9 +24,9 @@ object UpdateChecker {
     }
 
     /**
-     * Controlla se è disponibile una versione più recente su GitHub Releases.
-     * Confronta [currentVersion] (es. "1.2.0") con il tag_name del release più recente.
-     * Deve essere chiamata da una coroutine (usa Dispatchers.IO internamente).
+     * Checks whether a newer version is available on GitHub Releases.
+     * Compares [currentVersion] (e.g. "1.2.0") against the latest release tag_name.
+     * Must be called from a coroutine — uses Dispatchers.IO internally.
      */
     suspend fun checkForUpdate(currentVersion: String): UpdateResult =
         withContext(Dispatchers.IO) {
@@ -65,13 +65,13 @@ object UpdateChecker {
                     UpdateResult.UpToDate
                 }
             } catch (e: Exception) {
-                UpdateResult.Error(e.message ?: "Errore sconosciuto")
+                UpdateResult.Error(e.message ?: "Unknown error")
             }
         }
 
     /**
-     * Confronto semantico semplice: "1.3.0" > "1.2.0".
-     * Funziona con versioni nel formato MAJOR.MINOR.PATCH.
+     * Simple semantic version comparison: "1.3.0" > "1.2.0".
+     * Works with versions in MAJOR.MINOR.PATCH format.
      */
     private fun isNewerVersion(remote: String, current: String): Boolean {
         val remoteParts  = remote.split(".").mapNotNull { it.toIntOrNull() }

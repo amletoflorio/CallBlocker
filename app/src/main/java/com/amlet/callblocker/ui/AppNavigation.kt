@@ -13,12 +13,12 @@ import com.amlet.callblocker.ui.viewmodel.ContactViewModel
 import kotlinx.coroutines.launch
 
 object Routes {
-    const val HOME = "home"
-    const val CONTACTS = "contacts"
+    const val HOME        = "home"
+    const val CONTACTS    = "contacts"
     const val ADD_CONTACT = "add_contact"
     const val EDIT_CONTACT = "edit_contact/{contactId}"
-    const val SETTINGS = "settings"
-    const val CALL_LOG = "call_log"
+    const val SETTINGS    = "settings"
+    const val CALL_LOG    = "call_log"
 
     fun editContact(contactId: Int) = "edit_contact/$contactId"
 }
@@ -82,7 +82,7 @@ fun AppNavigation(
                     onToggleService = onToggleProtection,
                     onNavigateToContacts = { navController.navigate(Routes.CONTACTS) },
                     onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
-                    onNavigateToCallLog = { navController.navigate(Routes.CALL_LOG) }
+                    onNavigateToCallLog  = { navController.navigate(Routes.CALL_LOG) }
                 )
             }
 
@@ -119,7 +119,7 @@ fun AppNavigation(
                         onNavigateBack = { navController.popBackStack() }
                     )
                 } else {
-                    // Contatto non trovato — torna indietro
+                    // Contact not found — go back
                     LaunchedEffect(Unit) { navController.popBackStack() }
                 }
             }

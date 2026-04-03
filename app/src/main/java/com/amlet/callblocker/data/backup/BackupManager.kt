@@ -10,17 +10,17 @@ import java.io.File
 import java.io.InputStreamReader
 
 /**
- * Gestisce l'import e l'export della whitelist in formato JSON.
+ * Handles import and export of the whitelist in JSON format.
  *
- * Usa il SAF (Storage Access Framework) di Android per accedere ai file
- * in modo sicuro e compatibile con tutte le versioni moderne.
- * L'Uri viene fornito dall'utente tramite il file picker di sistema.
+ * Uses Android's SAF (Storage Access Framework) to access files
+ * safely and compatibly across modern Android versions.
+ * The Uri is provided by the user via the system file picker.
  */
 object BackupManager {
 
     private val json = Json {
         prettyPrint = true
-        ignoreUnknownKeys = true // Compatibilità forward con versioni future
+        ignoreUnknownKeys = true // Forward compatibility with future versions
     }
 
     @kotlinx.serialization.Serializable
@@ -30,9 +30,7 @@ object BackupManager {
         val contacts: List<ContactEntity>
     )
 
-    /**
-     * Esporta i contatti in un file JSON scelto dall'utente (via SAF).
-     */
+    /** Exports contacts to a JSON file chosen by the user (via SAF). */
     fun exportToUri(
         context: Context,
         uri: Uri,
@@ -44,7 +42,7 @@ object BackupManager {
 
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                 outputStream.write(jsonString.toByteArray(Charsets.UTF_8))
-            } ?: return Result.failure(Exception("Impossibile aprire il file di destinazione"))
+            } ?: return Result.failure(Exception("Cannot open destination file"))
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -53,8 +51,8 @@ object BackupManager {
     }
 
     /**
-     * Esporta i contatti direttamente in un [File] del filesystem.
-     * Usato da [com.amlet.callblocker.worker.AutoBackupWorker] per il backup automatico.
+     * Exports contacts directly to a [File] on the filesystem.
+     * Used by [com.amlet.callblocker.worker.AutoBackupWorker] for automatic backups.
      */
     fun exportToFile(
         context: Context,
@@ -71,9 +69,7 @@ object BackupManager {
         }
     }
 
-    /**
-     * Importa i contatti da un file JSON scelto dall'utente.
-     */
+    /** Imports contacts from a JSON file chosen by the user. */
     fun importFromUri(
         context: Context,
         uri: Uri
@@ -81,23 +77,23 @@ object BackupManager {
         return try {
             val jsonString = context.contentResolver.openInputStream(uri)?.use { inputStream ->
                 BufferedReader(InputStreamReader(inputStream)).readText()
-            } ?: return Result.failure(Exception("Impossibile leggere il file"))
+            } ?: return Result.failure(Exception("Cannot read file"))
 
-            // Proviamo prima il formato BackupFile (v1+)
+            // Try the BackupFile format first (v1+)
             val contacts = try {
                 val backup = json.decodeFromString<BackupFile>(jsonString)
                 backup.contacts
             } catch (e: Exception) {
-                // Fallback: lista diretta di ContactEntity (formato legacy)
+                // Fallback: direct list of ContactEntity (legacy format)
                 json.decodeFromString<List<ContactEntity>>(jsonString)
             }
 
-            // Resetta gli ID per evitare conflitti con il DB esistente
+            // Reset IDs to avoid conflicts with the existing DB
             val resetContacts = contacts.map { it.copy(id = 0) }
             Result.success(resetContacts)
 
         } catch (e: Exception) {
-            Result.failure(Exception("File non valido o corrotto: ${e.message}"))
+            Result.failure(Exception("Invalid or corrupted file: ${e.message}"))
         }
     }
 }
