@@ -40,11 +40,14 @@ private enum class SettingsTab { PROTECTION, BACKUP, UPDATES, INFO }
 fun SettingsScreen(
     onExportBackup: (Context, Uri) -> Unit,
     onImportBackup: (Context, Uri) -> Unit,
+    onApplyLogRetention: (Int) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { AppPreferences(context) }
-    // Restore the last selected tab so language change (which calls recreate()) lands back here
+
+    // Restore the last active tab so language change (which calls recreate()) lands back here.
+    // Default is PROTECTION (index 0), not INFO.
     var selectedTab by remember {
         mutableStateOf(
             SettingsTab.entries.getOrElse(prefs.lastSettingsTab) { SettingsTab.PROTECTION }
@@ -72,7 +75,12 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title), fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_title),
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Rounded.ArrowBack, stringResource(R.string.common_back))
@@ -87,31 +95,52 @@ fun SettingsScreen(
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+            // ScrollableTabRow adapts to large system font sizes without clipping.
             ScrollableTabRow(
                 selectedTabIndex = selectedTab.ordinal,
                 containerColor = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.primary,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+                divider = {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                },
                 edgePadding = 0.dp
             ) {
                 SettingsTab.entries.forEachIndexed { index, tab ->
                     Tab(
                         selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        icon = { Icon(tabIcons[index], tabLabels[index], modifier = Modifier.size(18.dp)) },
-                        text = { Text(tabLabels[index], style = MaterialTheme.typography.labelMedium) }
+                        onClick = {
+                            selectedTab = tab
+                            // Persist immediately so the correct tab is restored
+                            // after a language-triggered recreate().
+                            prefs.lastSettingsTab = tab.ordinal
+                        },
+                        icon = {
+                            Icon(
+                                tabIcons[index],
+                                tabLabels[index],
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        text = {
+                            Text(
+                                tabLabels[index],
+                                style = MaterialTheme.typography.labelMedium
+                            )
+                        }
                     )
                 }
             }
 
             when (selectedTab) {
-                SettingsTab.PROTECTION -> ProtectionTab(context)
+                SettingsTab.PROTECTION -> ProtectionTab(context, onApplyLogRetention)
                 SettingsTab.BACKUP     -> BackupTab(context, onExportBackup, onImportBackup)
                 SettingsTab.UPDATES    -> UpdatesTab(context)
                 SettingsTab.INFO       -> InfoTab(
@@ -130,14 +159,18 @@ fun SettingsScreen(
 // ── Tab: Protection ───────────────────────────────────────────────────────────
 
 @Composable
-private fun ProtectionTab(context: Context) {
+private fun ProtectionTab(
+    context: Context,
+    onApplyLogRetention: (Int) -> Unit
+) {
     val prefs = remember { AppPreferences(context) }
-    var notifyOnBlock by remember { mutableStateOf(prefs.notifyOnBlock) }
-    var suspendUntil by remember { mutableStateOf(prefs.suspendUntil) }
+    var notifyOnBlock  by remember { mutableStateOf(prefs.notifyOnBlock) }
+    var suspendUntil   by remember { mutableStateOf(prefs.suspendUntil) }
     var showSuspendDialog by remember { mutableStateOf(false) }
-    var protectedSim by remember { mutableStateOf(prefs.protectedSim) }
+    var protectedSim   by remember { mutableStateOf(prefs.protectedSim) }
+    var retentionDays  by remember { mutableStateOf(prefs.logRetentionDays) }
 
-    // Detect how many SIMs are installed — hide selector on single-SIM devices
+    // Detect how many SIMs are installed — hide selector on single-SIM devices.
     val simCount = remember {
         try {
             val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
@@ -160,12 +193,15 @@ private fun ProtectionTab(context: Context) {
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Suspend protection ───────────────────────────────────────────────
+        // ── Suspend protection ────────────────────────────────────────────────
         val isSuspended = suspendUntil > System.currentTimeMillis()
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -181,7 +217,8 @@ private fun ProtectionTab(context: Context) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                         Icons.Rounded.PauseCircle, null,
-                        tint = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        tint = if (isSuspended) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(16.dp))
@@ -189,7 +226,8 @@ private fun ProtectionTab(context: Context) {
                         Text(
                             stringResource(R.string.settings_suspend_title),
                             style = MaterialTheme.typography.titleMedium,
-                            color = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                            color = if (isSuspended) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             if (isSuspended)
@@ -202,12 +240,17 @@ private fun ProtectionTab(context: Context) {
                     }
                 }
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     if (isSuspended) {
                         Button(
                             onClick = { prefs.cancelSuspend(); suspendUntil = 0L },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp))
@@ -242,39 +285,130 @@ private fun ProtectionTab(context: Context) {
             }
         }
 
-        // ── Notify blocked calls ─────────────────────────────────────────────
+        // ── Notify blocked calls ──────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.Notifications, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_notify_title), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.settings_notify_subtitle),
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.settings_notify_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        stringResource(R.string.settings_notify_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Switch(checked = notifyOnBlock, onCheckedChange = { prefs.notifyOnBlock = it; notifyOnBlock = it })
+                Switch(
+                    checked = notifyOnBlock,
+                    onCheckedChange = { prefs.notifyOnBlock = it; notifyOnBlock = it }
+                )
             }
         }
 
-        // ── Dual SIM selector — only shown on multi-SIM devices ─────────────
+        // ── Log auto-cleanup ──────────────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.AutoDelete, null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            stringResource(R.string.settings_log_retention_title),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            stringResource(R.string.settings_log_retention_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                val retentionOptions = listOf(
+                    0  to stringResource(R.string.settings_log_retention_never),
+                    7  to stringResource(R.string.settings_log_retention_7d),
+                    30 to stringResource(R.string.settings_log_retention_30d),
+                    90 to stringResource(R.string.settings_log_retention_90d)
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    retentionOptions.forEach { (days, label) ->
+                        FilterChip(
+                            selected = retentionDays == days,
+                            onClick = {
+                                retentionDays = days
+                                prefs.logRetentionDays = days
+                                onApplyLogRetention(days)
+                            },
+                            label = {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelSmall
+                                )
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // ── Dual SIM selector — only shown on multi-SIM devices ───────────────
         if (simCount > 1) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.SimCard, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                        Icon(
+                            Icons.Rounded.SimCard, null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(stringResource(R.string.settings_sim_title), style = MaterialTheme.typography.titleMedium)
-                            Text(stringResource(R.string.settings_sim_subtitle),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(R.string.settings_sim_title),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            Text(
+                                stringResource(R.string.settings_sim_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
 
@@ -295,7 +429,9 @@ private fun ProtectionTab(context: Context) {
                                     protectedSim = value
                                     prefs.protectedSim = value
                                 },
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                                label = {
+                                    Text(label, style = MaterialTheme.typography.labelSmall)
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -311,26 +447,32 @@ private fun ProtectionTab(context: Context) {
 // ── Tab: Backup ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, onImportBackup: (Context, Uri) -> Unit) {
+private fun BackupTab(
+    context: Context,
+    onExportBackup: (Context, Uri) -> Unit,
+    onImportBackup: (Context, Uri) -> Unit
+) {
     val prefs = remember { AppPreferences(context) }
-    var intervalDays by remember { mutableStateOf(prefs.autoBackupIntervalDays) }
-    val lastBackupAt by remember { mutableStateOf(prefs.lastAutoBackupAt) }
+    var intervalDays    by remember { mutableStateOf(prefs.autoBackupIntervalDays) }
+    val lastBackupAt    by remember { mutableStateOf(prefs.lastAutoBackupAt) }
     var folderUriString by remember { mutableStateOf(prefs.autoBackupFolderUri) }
 
     val filename = stringResource(R.string.settings_backup_filename)
-    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-        uri?.let { onExportBackup(context, it) }
-    }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        uri?.let { onImportBackup(context, it) }
-    }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let { onExportBackup(context, it) } }
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { onImportBackup(context, it) } }
 
-    val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
         if (uri != null) {
             context.contentResolver.takePersistableUriPermission(
                 uri,
                 android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
             prefs.autoBackupFolderUri = uri.toString()
             folderUriString = uri.toString()
@@ -349,34 +491,65 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
             val uri = Uri.parse(uriStr)
             uri.lastPathSegment?.substringAfterLast(':') ?: uriStr
         }.getOrNull()
-    }
+    } ?: stringResource(R.string.settings_auto_backup_folder_default)
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Auto backup ──────────────────────────────────────────────────────
+        // ── Manual export / import ────────────────────────────────────────────
+        SettingsCard(
+            icon = Icons.Rounded.Upload,
+            title = stringResource(R.string.settings_export_title),
+            subtitle = stringResource(R.string.settings_export_subtitle),
+            onClick = { exportLauncher.launch(filename) }
+        )
+        SettingsCard(
+            icon = Icons.Rounded.Download,
+            title = stringResource(R.string.settings_import_title),
+            subtitle = stringResource(R.string.settings_import_subtitle),
+            onClick = { importLauncher.launch(arrayOf("application/json")) },
+            isDestructive = true
+        )
+
+        // ── Auto backup ───────────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.AutoMode, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Icon(
+                        Icons.Rounded.AutoAwesome, null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                        Text(stringResource(R.string.settings_auto_backup_title), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.settings_auto_backup_subtitle),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.settings_auto_backup_title),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            stringResource(R.string.settings_auto_backup_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     intervalOptions.forEach { (days, label) ->
                         FilterChip(
@@ -384,67 +557,53 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
                             onClick = {
                                 intervalDays = days
                                 prefs.autoBackupIntervalDays = days
-                                (context.applicationContext as CallBlockerApp).rescheduleAutoBackup()
+                                (context.applicationContext as com.amlet.callblocker.CallBlockerApp)
+                                    .scheduleAutoBackupIfNeeded()
                             },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            label = {
+                                Text(label, style = MaterialTheme.typography.labelSmall)
+                            },
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                if (intervalDays > 0) {
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Icon(Icons.Rounded.Folder, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.settings_auto_backup_folder), style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                folderLabel ?: stringResource(R.string.settings_auto_backup_folder_default),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        OutlinedButton(onClick = { folderPickerLauncher.launch(null) }, shape = RoundedCornerShape(12.dp)) {
-                            Text(stringResource(R.string.settings_auto_backup_folder_choose))
-                        }
-                    }
-                }
-
                 if (lastBackupAt > 0L) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            stringResource(R.string.settings_auto_backup_last, formatDateTime(lastBackupAt)),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                    Text(
+                        text = stringResource(
+                            R.string.settings_auto_backup_last,
+                            formatDateTime(lastBackupAt)
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Folder, null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        text = folderLabel,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f)
+                    )
+                    TextButton(onClick = { folderPickerLauncher.launch(null) }) {
+                        Text(stringResource(R.string.settings_auto_backup_folder_choose))
                     }
                 }
             }
         }
 
-        // ── Manual backup ────────────────────────────────────────────────────
-        SettingsCard(Icons.Rounded.Upload, stringResource(R.string.settings_export_title), stringResource(R.string.settings_export_subtitle),
-            onClick = { exportLauncher.launch(filename) })
-        SettingsCard(Icons.Rounded.Download, stringResource(R.string.settings_import_title), stringResource(R.string.settings_import_subtitle),
-            onClick = { importLauncher.launch(arrayOf("application/json")) }, isDestructive = true)
-
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
-            Row(modifier = Modifier.padding(16.dp)) {
-                Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(stringResource(R.string.settings_backup_info),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
         Spacer(modifier = Modifier.height(16.dp))
     }
 }
@@ -454,105 +613,149 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
 @Composable
 private fun UpdatesTab(context: Context) {
     val prefs = remember { AppPreferences(context) }
+    var checkUpdatesEnabled by remember { mutableStateOf(prefs.checkUpdatesEnabled) }
+    var notifyOnUpdate      by remember { mutableStateOf(prefs.notifyOnUpdate) }
+    var updateChecking      by remember { mutableStateOf(false) }
+    var updateUpToDate      by remember { mutableStateOf(false) }
+    var updateError         by remember { mutableStateOf<String?>(null) }
+    var updateDialogInfo    by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     val scope = rememberCoroutineScope()
 
-    var checkUpdatesEnabled by remember { mutableStateOf(prefs.checkUpdatesEnabled) }
-    var notifyOnUpdate by remember { mutableStateOf(prefs.notifyOnUpdate) }
-    var updateDialogInfo by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
-    var updateChecking by remember { mutableStateOf(false) }
-    var updateUpToDate by remember { mutableStateOf(false) }
-    var updateError by remember { mutableStateOf<String?>(null) }
-
-    updateDialogInfo?.let { info ->
+    if (updateDialogInfo != null) {
+        val info = updateDialogInfo!!
         AlertDialog(
             onDismissRequest = { updateDialogInfo = null },
-            icon = { Icon(Icons.Rounded.SystemUpdate, null) },
+            icon = { Icon(Icons.Rounded.NewReleases, null) },
             title = { Text(stringResource(R.string.update_dialog_title)) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.update_dialog_body, BuildConfig.VERSION_NAME, info.latestVersion))
-                    if (info.releaseNotes.isNotBlank()) {
-                        HorizontalDivider()
-                        Text(info.releaseNotes,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+                Text(
+                    stringResource(
+                        R.string.update_dialog_body,
+                        BuildConfig.VERSION_NAME,
+                        info.latestVersion
+                    )
+                )
             },
             confirmButton = {
                 Button(onClick = {
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl)))
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl))
+                    )
                     updateDialogInfo = null
                 }) { Text(stringResource(R.string.update_dialog_download)) }
             },
             dismissButton = {
-                TextButton(onClick = { updateDialogInfo = null }) { Text(stringResource(R.string.update_dialog_later)) }
+                TextButton(onClick = { updateDialogInfo = null }) {
+                    Text(stringResource(R.string.update_dialog_later))
+                }
             }
         )
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── Current version ──────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.NewReleases, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_version_title), style = MaterialTheme.typography.titleMedium)
-                    Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // ── Current version ───────────────────────────────────────────
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Rounded.Info, null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            stringResource(R.string.settings_version_title),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            BuildConfig.VERSION_NAME,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
-            }
-        }
 
-        // ── Update settings ──────────────────────────────────────────────────
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-        ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // Toggle: auto check
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Autorenew, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                // ── Auto-check toggle ─────────────────────────────────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Rounded.SystemUpdate, null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp)
+                    )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_check_updates_title), style = MaterialTheme.typography.bodyMedium)
-                        Text(stringResource(R.string.settings_check_updates_subtitle),
-                            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            stringResource(R.string.settings_check_updates_title),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Text(
+                            stringResource(R.string.settings_check_updates_subtitle),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                     Switch(
                         checked = checkUpdatesEnabled,
                         onCheckedChange = {
                             checkUpdatesEnabled = it
                             prefs.checkUpdatesEnabled = it
-                            if (!it) { notifyOnUpdate = false; prefs.notifyOnUpdate = false; updateUpToDate = false; updateError = null }
-                            (context.applicationContext as com.amlet.callblocker.CallBlockerApp).scheduleUpdateCheckIfNeeded()
+                            if (!it) {
+                                notifyOnUpdate = false
+                                prefs.notifyOnUpdate = false
+                                updateUpToDate = false
+                                updateError = null
+                            }
+                            (context.applicationContext as com.amlet.callblocker.CallBlockerApp)
+                                .scheduleUpdateCheckIfNeeded()
                         }
                     )
                 }
 
-                // Toggle: notify on update (only when auto-check is enabled)
+                // Notify toggle and check button — only when auto-check is on.
                 if (checkUpdatesEnabled) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.NotificationsActive, null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(stringResource(R.string.settings_notify_update_title), style = MaterialTheme.typography.bodyMedium)
-                            Text(stringResource(R.string.settings_notify_update_subtitle),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(R.string.settings_notify_update_title),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                stringResource(R.string.settings_notify_update_subtitle),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                         Switch(
                             checked = notifyOnUpdate,
@@ -562,7 +765,6 @@ private fun UpdatesTab(context: Context) {
 
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                    // Check now button
                     Button(
                         onClick = {
                             updateUpToDate = false
@@ -570,9 +772,12 @@ private fun UpdatesTab(context: Context) {
                             updateChecking = true
                             scope.launch {
                                 when (val result = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)) {
-                                    is UpdateChecker.UpdateResult.UpdateAvailable -> updateDialogInfo = result.info
-                                    is UpdateChecker.UpdateResult.UpToDate        -> updateUpToDate = true
-                                    is UpdateChecker.UpdateResult.Error           -> updateError = result.message
+                                    is UpdateChecker.UpdateResult.UpdateAvailable ->
+                                        updateDialogInfo = result.info
+                                    is UpdateChecker.UpdateResult.UpToDate ->
+                                        updateUpToDate = true
+                                    is UpdateChecker.UpdateResult.Error ->
+                                        updateError = result.message
                                 }
                                 updateChecking = false
                             }
@@ -582,8 +787,11 @@ private fun UpdatesTab(context: Context) {
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         if (updateChecking) {
-                            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary)
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
                         } else {
                             Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(18.dp))
@@ -597,17 +805,31 @@ private fun UpdatesTab(context: Context) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Rounded.CheckCircle, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-                            Text(stringResource(R.string.settings_check_updates_up_to_date),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
+                            Icon(
+                                Icons.Rounded.CheckCircle, null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                stringResource(R.string.settings_check_updates_up_to_date),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
                         }
                         updateError != null -> Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Icon(Icons.Rounded.Warning, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
-                            Text(stringResource(R.string.settings_check_updates_error, updateError!!),
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Rounded.Warning, null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                stringResource(R.string.settings_check_updates_error, updateError!!),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 }
@@ -621,10 +843,14 @@ private fun UpdatesTab(context: Context) {
 // ── Tab: Info ─────────────────────────────────────────────────────────────────
 
 @Composable
-private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageChanged: () -> Unit) {
+private fun InfoTab(
+    context: Context,
+    onShowChangelog: () -> Unit,
+    onLanguageChanged: () -> Unit
+) {
     val prefs = remember { AppPreferences(context) }
-    var appLanguage by remember { mutableStateOf(prefs.appLanguage) }
-    var showLangDialog by remember { mutableStateOf(false) }
+    var appLanguage     by remember { mutableStateOf(prefs.appLanguage) }
+    var showLangDialog  by remember { mutableStateOf(false) }
 
     if (showLangDialog) {
         LanguageDialog(
@@ -641,12 +867,14 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Spacer(modifier = Modifier.height(8.dp))
 
-        // ── What's new ───────────────────────────────────────────────────────
         SettingsCard(
             icon = Icons.Rounded.NewReleases,
             title = stringResource(R.string.settings_whats_new_title),
@@ -654,59 +882,108 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
             onClick = onShowChangelog
         )
 
-        // ── Language ─────────────────────────────────────────────────────────
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             onClick = { showLangDialog = true }
         ) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.Language, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_language_title), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.settings_language_title),
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text(
                         when (appLanguage) {
                             AppPreferences.LANG_EN -> stringResource(R.string.settings_language_en)
                             AppPreferences.LANG_IT -> stringResource(R.string.settings_language_it)
-                            else                   -> stringResource(R.string.settings_language_system)
+                            else -> stringResource(R.string.settings_language_system)
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(
+                    Icons.Rounded.ChevronRight, null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
-        // ── Source code ──────────────────────────────────────────────────────
-        SettingsCard(Icons.Rounded.Code, stringResource(R.string.settings_github_title), stringResource(R.string.settings_github_subtitle),
-            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/amletoflorio/CallBlocker"))) })
+        SettingsCard(
+            icon = Icons.Rounded.Code,
+            title = stringResource(R.string.settings_github_title),
+            subtitle = stringResource(R.string.settings_github_subtitle),
+            onClick = {
+                context.startActivity(
+                    Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("https://github.com/amletoflorio/CallBlocker")
+                    )
+                )
+            }
+        )
 
-        // ── How it works ─────────────────────────────────────────────────────
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
             Row(modifier = Modifier.padding(16.dp)) {
                 Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
-                    Text(stringResource(R.string.settings_how_it_works_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        stringResource(R.string.settings_how_it_works_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(stringResource(R.string.settings_how_it_works_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.settings_how_it_works_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
 
-        // ── Credits ──────────────────────────────────────────────────────────
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Rounded.Favorite, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
-                    Text(stringResource(R.string.settings_credits_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Text(stringResource(R.string.settings_credits_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.settings_credits_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        stringResource(R.string.settings_credits_subtitle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }
@@ -718,7 +995,11 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
 // ── Language dialog ───────────────────────────────────────────────────────────
 
 @Composable
-private fun LanguageDialog(current: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
+private fun LanguageDialog(
+    current: String,
+    onSelect: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
     val options = listOf(
         AppPreferences.LANG_SYSTEM to stringResource(R.string.settings_language_system),
         AppPreferences.LANG_EN     to stringResource(R.string.settings_language_en),
@@ -745,7 +1026,9 @@ private fun LanguageDialog(current: String, onSelect: (String) -> Unit, onDismis
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
         }
     )
 }
@@ -754,7 +1037,7 @@ private fun LanguageDialog(current: String, onSelect: (String) -> Unit, onDismis
 
 @Composable
 private fun SuspendDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
-    var days by remember { mutableStateOf(0) }
+    var days  by remember { mutableStateOf(0) }
     var hours by remember { mutableStateOf(1) }
 
     AlertDialog(
@@ -763,34 +1046,83 @@ private fun SuspendDialog(onDismiss: () -> Unit, onConfirm: (Long) -> Unit) {
         title = { Text(stringResource(R.string.settings_suspend_dialog_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(stringResource(R.string.settings_suspend_dialog_body),
-                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.settings_suspend_dialog_days), modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
-                    IconButton(onClick = { if (days > 0) days-- }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Remove, stringResource(R.string.common_less)) }
-                    Text("$days", style = MaterialTheme.typography.titleLarge, modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
-                    IconButton(onClick = { if (days < 30) days++ }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Add, stringResource(R.string.common_more)) }
+                Text(
+                    stringResource(R.string.settings_suspend_dialog_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.settings_suspend_dialog_days),
+                        modifier = Modifier.width(60.dp),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    IconButton(
+                        onClick = { if (days > 0) days-- },
+                        modifier = Modifier.size(36.dp)
+                    ) { Icon(Icons.Rounded.Remove, stringResource(R.string.common_less)) }
+                    Text(
+                        "$days",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.width(32.dp),
+                        textAlign = TextAlign.Center
+                    )
+                    IconButton(
+                        onClick = { if (days < 30) days++ },
+                        modifier = Modifier.size(36.dp)
+                    ) { Icon(Icons.Rounded.Add, stringResource(R.string.common_more)) }
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.settings_suspend_dialog_hours), modifier = Modifier.width(60.dp), style = MaterialTheme.typography.bodyLarge)
-                    IconButton(onClick = { if (hours > 0) hours-- }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Remove, stringResource(R.string.common_less)) }
-                    Text("$hours", style = MaterialTheme.typography.titleLarge, modifier = Modifier.width(32.dp), textAlign = TextAlign.Center)
-                    IconButton(onClick = { if (hours < 23) hours++ }, modifier = Modifier.size(36.dp)) { Icon(Icons.Rounded.Add, stringResource(R.string.common_more)) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        stringResource(R.string.settings_suspend_dialog_hours),
+                        modifier = Modifier.width(60.dp),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    IconButton(
+                        onClick = { if (hours > 0) hours-- },
+                        modifier = Modifier.size(36.dp)
+                    ) { Icon(Icons.Rounded.Remove, stringResource(R.string.common_less)) }
+                    Text(
+                        "$hours",
+                        style = MaterialTheme.typography.titleLarge,
+                        modifier = Modifier.width(32.dp),
+                        textAlign = TextAlign.Center
+                    )
+                    IconButton(
+                        onClick = { if (hours < 23) hours++ },
+                        modifier = Modifier.size(36.dp)
+                    ) { Icon(Icons.Rounded.Add, stringResource(R.string.common_more)) }
                 }
                 if (days == 0 && hours == 0) {
-                    Text(stringResource(R.string.settings_suspend_dialog_min_error),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        stringResource(R.string.settings_suspend_dialog_min_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onConfirm(TimeUnit.DAYS.toMillis(days.toLong()) + TimeUnit.HOURS.toMillis(hours.toLong())) },
+                onClick = {
+                    onConfirm(
+                        TimeUnit.DAYS.toMillis(days.toLong()) +
+                                TimeUnit.HOURS.toMillis(hours.toLong())
+                    )
+                },
                 enabled = days > 0 || hours > 0
             ) { Text(stringResource(R.string.settings_suspend_dialog_confirm)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.settings_suspend_dialog_cancel)) }
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.settings_suspend_dialog_cancel))
+            }
         }
     )
 }
@@ -811,19 +1143,40 @@ private fun SettingsCard(
     onClick: () -> Unit,
     isDestructive: Boolean = false
 ) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null,
-                tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(24.dp))
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon, null,
+                tint = if (isDestructive) MaterialTheme.colorScheme.error
+                else MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium,
-                    color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (isDestructive) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
-            Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                Icons.Rounded.ChevronRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

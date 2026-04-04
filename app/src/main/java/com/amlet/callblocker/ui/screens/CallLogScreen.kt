@@ -1,5 +1,6 @@
 package com.amlet.callblocker.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -16,28 +17,60 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.amlet.callblocker.R
 import com.amlet.callblocker.data.db.BlockedCallEntity
+import com.amlet.callblocker.util.PhoneUtils
 import java.text.SimpleDateFormat
 import java.util.*
+
+/**
+ * Groups all call attempts by phone number, showing each unique number once
+ * with a count badge and the most recent attempt time.
+ */
+private data class BlockedNumberSummary(
+    val phoneNumber: String,
+    val latestAttempt: Long,
+    val totalAttempts: Int,
+    /** SIM slot of the most recent attempt, if available. */
+    val latestSimSlot: String?
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CallLogScreen(
     blockedCalls: List<BlockedCallEntity>,
     onClearLog: () -> Unit,
-    onNavigateBack: () -> Unit
+    onNavigateBack: () -> Unit,
+    onOpenDetail: (String) -> Unit
 ) {
     var showConfirmDialog by remember { mutableStateOf(false) }
+
+    // Group attempts by number, keep summary info for each.
+    val summaries: List<BlockedNumberSummary> = remember(blockedCalls) {
+        blockedCalls
+            .groupBy { it.phoneNumber }
+            .map { (number, calls) ->
+                val sorted = calls.sortedByDescending { it.blockedAt }
+                BlockedNumberSummary(
+                    phoneNumber = number,
+                    latestAttempt = sorted.first().blockedAt,
+                    totalAttempts = calls.size,
+                    latestSimSlot = sorted.first().simSlot
+                )
+            }
+            .sortedByDescending { it.latestAttempt }
+    }
 
     if (showConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showConfirmDialog = false },
             icon = { Icon(Icons.Rounded.DeleteForever, contentDescription = null) },
             title = { Text(stringResource(R.string.call_log_clear)) },
-            text = { Text(stringResource(R.string.call_log_clear_confirm, blockedCalls.size)) },
+            text = { Text(stringResource(R.string.call_log_clear_confirm, summaries.size)) },
             confirmButton = {
                 Button(
                     onClick = { onClearLog(); showConfirmDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error
+                    )
                 ) { Text(stringResource(R.string.call_log_clear)) }
             },
             dismissButton = {
@@ -51,62 +84,83 @@ fun CallLogScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.call_log_title), fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        stringResource(R.string.call_log_title),
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Rounded.ArrowBack, stringResource(R.string.common_back))
                     }
                 },
                 actions = {
-                    if (blockedCalls.isNotEmpty()) {
+                    if (summaries.isNotEmpty()) {
                         IconButton(onClick = { showConfirmDialog = true }) {
-                            Icon(Icons.Rounded.DeleteForever, stringResource(R.string.call_log_clear),
-                                tint = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Rounded.DeleteForever,
+                                stringResource(R.string.call_log_clear),
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Box(modifier = Modifier.fillMaxSize().padding(padding)) {
-            if (blockedCalls.isEmpty()) {
+            if (summaries.isEmpty()) {
                 Column(
                     modifier = Modifier.align(Alignment.Center).padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Icon(Icons.Rounded.History, null,
+                    Icon(
+                        Icons.Rounded.History, null,
                         modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(R.string.call_log_empty),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.call_log_empty),
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             } else {
-                val todayStr = stringResource(R.string.call_log_today)
+                val todayStr     = stringResource(R.string.call_log_today)
                 val yesterdayStr = stringResource(R.string.call_log_yesterday)
-                val dateFmt = stringResource(R.string.date_format_full)
-                val blockedLabel = stringResource(R.string.call_log_blocked_label)
-                val timeFmt = stringResource(R.string.date_format_time)
+                val dateFmt      = stringResource(R.string.date_format_full)
+                val timeFmt      = stringResource(R.string.date_format_time)
 
                 LazyColumn(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    val grouped = blockedCalls.groupBy { call ->
-                        formatDate(call.blockedAt, todayStr, yesterdayStr, dateFmt)
+                    val grouped = summaries.groupBy { s ->
+                        formatDate(s.latestAttempt, todayStr, yesterdayStr, dateFmt)
                     }
-                    grouped.forEach { (date, calls) ->
+                    grouped.forEach { (date, group) ->
                         item {
-                            Text(text = date,
+                            Text(
+                                text = date,
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp))
+                                modifier = Modifier.padding(
+                                    top = 8.dp, bottom = 4.dp, start = 4.dp
+                                )
+                            )
                         }
-                        items(calls, key = { it.id }) { call ->
-                            BlockedCallCard(call, blockedLabel, timeFmt)
+                        items(group, key = { it.phoneNumber }) { summary ->
+                            BlockedNumberCard(
+                                summary = summary,
+                                timeFmt = timeFmt,
+                                onClick = { onOpenDetail(summary.phoneNumber) }
+                            )
                         }
                     }
                     item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -117,47 +171,122 @@ fun CallLogScreen(
 }
 
 @Composable
-private fun BlockedCallCard(call: BlockedCallEntity, blockedLabel: String, timeFmt: String) {
+private fun BlockedNumberCard(
+    summary: BlockedNumberSummary,
+    timeFmt: String,
+    onClick: () -> Unit
+) {
+    val formatted = remember(summary.phoneNumber) {
+        PhoneUtils.formatForDisplay(summary.phoneNumber)
+    }
+
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            Surface(shape = CircleShape,
+            // Blocked icon
+            Surface(
+                shape = CircleShape,
                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                modifier = Modifier.size(42.dp)) {
+                modifier = Modifier.size(42.dp)
+            ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PhoneDisabled, null,
+                    Icon(
+                        Icons.Rounded.PhoneDisabled, null,
                         tint = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.size(20.dp))
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
+
             Column(modifier = Modifier.weight(1f)) {
-                Text(text = call.phoneNumber,
+                Text(
+                    text = formatted,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface)
-                Text(text = SimpleDateFormat(timeFmt, Locale.getDefault()).format(Date(call.blockedAt)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = SimpleDateFormat(timeFmt, Locale.getDefault())
+                            .format(Date(summary.latestAttempt)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    // SIM badge
+                    if (summary.latestSimSlot != null) {
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        ) {
+                            Text(
+                                text = summary.latestSimSlot,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
             }
-            Surface(shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)) {
-                Text(text = blockedLabel,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
+
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // Attempt count badge
+                if (summary.totalAttempts > 1) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.6f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.call_log_attempts, summary.totalAttempts),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.call_log_blocked_label),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                Icon(
+                    Icons.Rounded.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
 }
 
-private fun formatDate(timestampMs: Long, today: String, yesterday: String, fmt: String): String {
+private fun formatDate(
+    timestampMs: Long,
+    today: String,
+    yesterday: String,
+    fmt: String
+): String {
     val todayCal = Calendar.getInstance()
     val callDay = Calendar.getInstance().apply { timeInMillis = timestampMs }
     return when {

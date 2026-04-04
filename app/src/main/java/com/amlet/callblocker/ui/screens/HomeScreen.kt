@@ -6,8 +6,10 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -15,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -23,12 +26,16 @@ import androidx.compose.ui.unit.sp
 import com.amlet.callblocker.R
 import com.amlet.callblocker.data.prefs.AppPreferences
 import com.amlet.callblocker.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 @Composable
 fun HomeScreen(
     contactCount: Int,
     blockedCount: Int,
     isServiceEnabled: Boolean,
+    /** Non-zero when protection is currently suspended; contains the Unix ms expiry. */
+    suspendUntil: Long,
     onToggleService: () -> Unit,
     onNavigateToContacts: () -> Unit,
     onNavigateToSettings: () -> Unit,
@@ -43,7 +50,7 @@ fun HomeScreen(
         label = "statusColor"
     )
 
-    // Detect dual-SIM without SimUtils — mirrors ProtectionTab logic
+    // Detect dual-SIM without SimUtils — mirrors ProtectionTab logic.
     val isDualSim = remember {
         try {
             val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
@@ -54,175 +61,389 @@ fun HomeScreen(
     }
     val protectedSim by remember { mutableStateOf(prefs.protectedSim) }
 
+    // Landscape detection for responsive layout.
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
+        if (isLandscape) {
+            LandscapeHomeLayout(
+                padding = padding,
+                contactCount = contactCount,
+                blockedCount = blockedCount,
+                isServiceEnabled = isServiceEnabled,
+                suspendUntil = suspendUntil,
+                statusColor = statusColor,
+                isDualSim = isDualSim,
+                protectedSim = protectedSim,
+                onToggleService = onToggleService,
+                onNavigateToContacts = onNavigateToContacts,
+                onNavigateToSettings = onNavigateToSettings,
+                onNavigateToCallLog = onNavigateToCallLog
+            )
+        } else {
+            PortraitHomeLayout(
+                padding = padding,
+                contactCount = contactCount,
+                blockedCount = blockedCount,
+                isServiceEnabled = isServiceEnabled,
+                suspendUntil = suspendUntil,
+                statusColor = statusColor,
+                isDualSim = isDualSim,
+                protectedSim = protectedSim,
+                onToggleService = onToggleService,
+                onNavigateToContacts = onNavigateToContacts,
+                onNavigateToSettings = onNavigateToSettings,
+                onNavigateToCallLog = onNavigateToCallLog
+            )
+        }
+    }
+}
+
+// ── Portrait layout ───────────────────────────────────────────────────────────
+
+@Composable
+private fun PortraitHomeLayout(
+    padding: PaddingValues,
+    contactCount: Int,
+    blockedCount: Int,
+    isServiceEnabled: Boolean,
+    suspendUntil: Long,
+    statusColor: androidx.compose.ui.graphics.Color,
+    isDualSim: Boolean,
+    protectedSim: String,
+    onToggleService: () -> Unit,
+    onNavigateToContacts: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToCallLog: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(48.dp))
+
+        HomeHeader(onNavigateToSettings = onNavigateToSettings)
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+        HomeToggleCircle(
+            isServiceEnabled = isServiceEnabled,
+            statusColor = statusColor,
+            onToggleService = onToggleService
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // SIM protection badge — only shown on dual-SIM devices while active.
+        if (isDualSim && isServiceEnabled) {
+            SimProtectionBadge(protectedSim = protectedSim)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        // Suspended banner — shown when protection is suspended from Settings.
+        if (suspendUntil > 0L) {
+            SuspendedBanner(suspendUntil = suspendUntil)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        StatsCard(contactCount = contactCount, blockedCount = blockedCount)
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        HomeButtons(
+            onNavigateToContacts = onNavigateToContacts,
+            onNavigateToCallLog = onNavigateToCallLog
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        HomeDisclaimer()
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── Landscape layout ──────────────────────────────────────────────────────────
+
+@Composable
+private fun LandscapeHomeLayout(
+    padding: PaddingValues,
+    contactCount: Int,
+    blockedCount: Int,
+    isServiceEnabled: Boolean,
+    suspendUntil: Long,
+    statusColor: androidx.compose.ui.graphics.Color,
+    isDualSim: Boolean,
+    protectedSim: String,
+    onToggleService: () -> Unit,
+    onNavigateToContacts: () -> Unit,
+    onNavigateToSettings: () -> Unit,
+    onNavigateToCallLog: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        // Left column: toggle + SIM badge + suspend banner
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 24.dp),
+                .weight(1f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            HomeHeader(onNavigateToSettings = onNavigateToSettings)
+            Spacer(modifier = Modifier.height(16.dp))
+            HomeToggleCircle(
+                isServiceEnabled = isServiceEnabled,
+                statusColor = statusColor,
+                onToggleService = onToggleService
+            )
+            if (isDualSim && isServiceEnabled) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SimProtectionBadge(protectedSim = protectedSim)
+            }
+            if (suspendUntil > 0L) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SuspendedBanner(suspendUntil = suspendUntil)
+            }
+        }
+
+        // Right column: stats + buttons + disclaimer
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(48.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            StatsCard(contactCount = contactCount, blockedCount = blockedCount)
+            HomeButtons(
+                onNavigateToContacts = onNavigateToContacts,
+                onNavigateToCallLog = onNavigateToCallLog
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            HomeDisclaimer()
+        }
+    }
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = stringResource(R.string.app_name),
-                        style = MaterialTheme.typography.displayLarge,
-                        color = MaterialTheme.colorScheme.onBackground,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = stringResource(R.string.app_tagline),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                IconButton(onClick = onNavigateToSettings) {
-                    Icon(
-                        Icons.Rounded.Settings,
-                        contentDescription = stringResource(R.string.settings_title),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+// ── Shared sub-composables ────────────────────────────────────────────────────
 
-            Spacer(modifier = Modifier.height(56.dp))
+@Composable
+private fun HomeHeader(onNavigateToSettings: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.displayLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                text = stringResource(R.string.app_tagline),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        IconButton(onClick = onNavigateToSettings) {
+            Icon(
+                Icons.Rounded.Settings,
+                contentDescription = stringResource(R.string.settings_title),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(180.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (isServiceEnabled)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else
-                            MaterialTheme.colorScheme.surfaceVariant
-                    )
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Switch(
-                        checked = isServiceEnabled,
-                        onCheckedChange = { onToggleService() },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.background,
-                            checkedTrackColor = Emerald500,
-                            uncheckedThumbColor = Slate400,
-                            uncheckedTrackColor = Slate700
-                        )
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (isServiceEnabled)
-                            stringResource(R.string.home_status_active)
-                        else
-                            stringResource(R.string.home_status_inactive),
-                        color = statusColor,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.5.sp
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // SIM protection badge — only shown on dual-SIM devices while active
-            if (isDualSim && isServiceEnabled) {
-                SimProtectionBadge(protectedSim = protectedSim)
-                Spacer(modifier = Modifier.height(16.dp))
-            } else {
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Stats card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    StatItem(
-                        icon = Icons.Rounded.Shield,
-                        label = stringResource(R.string.home_stat_contacts),
-                        value = "$contactCount"
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier
-                            .height(48.dp)
-                            .width(1.dp),
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    StatItem(
-                        icon = Icons.Rounded.Block,
-                        label = stringResource(R.string.home_stat_blocked),
-                        value = "$blockedCount"
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Button(
-                onClick = onNavigateToContacts,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+@Composable
+private fun HomeToggleCircle(
+    isServiceEnabled: Boolean,
+    statusColor: androidx.compose.ui.graphics.Color,
+    onToggleService: () -> Unit
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier
+            .size(160.dp)
+            .clip(CircleShape)
+            .background(
+                if (isServiceEnabled)
+                    MaterialTheme.colorScheme.primaryContainer
+                else
+                    MaterialTheme.colorScheme.surfaceVariant
+            )
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Switch(
+                checked = isServiceEnabled,
+                onCheckedChange = { onToggleService() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.background,
+                    checkedTrackColor = Emerald500,
+                    uncheckedThumbColor = Slate400,
+                    uncheckedTrackColor = Slate700
                 )
-            ) {
-                Icon(Icons.Rounded.Contacts, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.home_btn_whitelist), style = MaterialTheme.typography.titleMedium)
-            }
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (isServiceEnabled)
+                    stringResource(R.string.home_status_active)
+                else
+                    stringResource(R.string.home_status_inactive),
+                color = statusColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp
+            )
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(12.dp))
+/**
+ * Banner shown when protection has been suspended from Settings.
+ * Gives the user immediate visual feedback on the Home screen.
+ */
+@Composable
+private fun SuspendedBanner(suspendUntil: Long) {
+    val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
+    val untilLabel = remember(suspendUntil) {
+        if (suspendUntil == Long.MAX_VALUE) "∞" else fmt.format(Date(suspendUntil))
+    }
 
-            OutlinedButton(
-                onClick = onNavigateToCallLog,
-                modifier = Modifier.fillMaxWidth().height(56.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Rounded.History, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(stringResource(R.string.home_btn_call_log), style = MaterialTheme.typography.titleMedium)
-            }
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                Icons.Rounded.PauseCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = stringResource(R.string.home_suspended_until, untilLabel),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
 
-            Spacer(modifier = Modifier.height(12.dp))
+@Composable
+private fun StatsCard(contactCount: Int, blockedCount: Int) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            StatItem(
+                icon = Icons.Rounded.Shield,
+                label = stringResource(R.string.home_stat_contacts),
+                value = "$contactCount"
+            )
+            HorizontalDivider(
+                modifier = Modifier.height(48.dp).width(1.dp),
+                color = MaterialTheme.colorScheme.outline
+            )
+            StatItem(
+                icon = Icons.Rounded.Block,
+                label = stringResource(R.string.home_stat_blocked),
+                value = "$blockedCount"
+            )
+        }
+    }
+}
 
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
-                )
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Rounded.Info, null, tint = Amber500, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = stringResource(R.string.home_info_disclaimer),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+@Composable
+private fun HomeButtons(
+    onNavigateToContacts: () -> Unit,
+    onNavigateToCallLog: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Button(
+            onClick = onNavigateToContacts,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Icon(Icons.Rounded.Contacts, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.home_btn_whitelist),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+
+        OutlinedButton(
+            onClick = onNavigateToCallLog,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Icon(Icons.Rounded.History, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.home_btn_call_log),
+                style = MaterialTheme.typography.titleMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeDisclaimer() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.Info, null, tint = Amber500, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                text = stringResource(R.string.home_info_disclaimer),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -234,7 +455,6 @@ private fun SimProtectionBadge(protectedSim: String) {
         AppPreferences.SIM_2 -> stringResource(R.string.home_sim_badge_sim2)
         else                 -> stringResource(R.string.home_sim_badge_both)
     }
-
     Surface(
         shape = RoundedCornerShape(20.dp),
         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.8f)
@@ -266,9 +486,17 @@ private fun StatItem(
     value: String
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(text = value, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

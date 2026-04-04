@@ -15,8 +15,22 @@ enum class ChangeType { NEW, FIX, IMPROVE }
 
 object ChangelogData {
 
-    // Version history — add new entries at the TOP of the list
+    // Version history — add new entries at the TOP of the list.
     val entries = listOf(
+        ChangelogEntry(
+            version = "1.5.0",
+            date = "2026-04-03",
+            changes = listOf(
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_5_0_1),
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_5_0_2),
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_5_0_3),
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_5_0_4),
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_5_0_5),
+                ChangeItem(ChangeType.FIX,     com.amlet.callblocker.R.string.changelog_1_5_0_6),
+                ChangeItem(ChangeType.FIX,     com.amlet.callblocker.R.string.changelog_1_5_0_7),
+                ChangeItem(ChangeType.IMPROVE, com.amlet.callblocker.R.string.changelog_1_5_0_8),
+            )
+        ),
         ChangelogEntry(
             version = "1.4.0",
             date = "2026-04-03",

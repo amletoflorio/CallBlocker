@@ -21,18 +21,18 @@ class AppPreferences(context: Context) {
         get() = prefs.getLong(KEY_SUSPEND_UNTIL, 0L)
         set(value) = prefs.edit().putLong(KEY_SUSPEND_UNTIL, value).apply()
 
-    /** True if protection is currently suspended */
+    /** True if protection is currently suspended. */
     val isSuspended: Boolean
         get() = suspendUntil > System.currentTimeMillis()
 
-    /** Immediately cancels the suspension */
+    /** Immediately cancels the suspension. */
     fun cancelSuspend() {
         suspendUntil = 0L
     }
 
     // ── Automatic backup ─────────────────────────────────────────────────────
 
-    /** Auto backup frequency in days (0 = disabled) */
+    /** Auto backup frequency in days (0 = disabled). */
     var autoBackupIntervalDays: Int
         get() = prefs.getInt(KEY_AUTO_BACKUP_INTERVAL, 0)
         set(value) = prefs.edit().putInt(KEY_AUTO_BACKUP_INTERVAL, value).apply()
@@ -45,7 +45,6 @@ class AppPreferences(context: Context) {
     /**
      * URI (string) of the folder chosen by the user for automatic backup.
      * Null = no folder selected → fallback to Documents/CallBlocker/.
-     * Stored as string and converted back to Uri in the Worker.
      */
     var autoBackupFolderUri: String?
         get() = prefs.getString(KEY_AUTO_BACKUP_FOLDER_URI, null)
@@ -53,17 +52,14 @@ class AppPreferences(context: Context) {
 
     // ── Update check ─────────────────────────────────────────────────────────
 
-    /** True if the update check is enabled by the user */
     var checkUpdatesEnabled: Boolean
         get() = prefs.getBoolean(KEY_CHECK_UPDATES, false)
         set(value) = prefs.edit().putBoolean(KEY_CHECK_UPDATES, value).apply()
 
-    /** True if the user wants to receive update available notifications */
     var notifyOnUpdate: Boolean
         get() = prefs.getBoolean(KEY_NOTIFY_ON_UPDATE, false)
         set(value) = prefs.edit().putBoolean(KEY_NOTIFY_ON_UPDATE, value).apply()
 
-    /** Unix timestamp (ms) of the last automatic update check. 0 = never. */
     var lastUpdateCheckAt: Long
         get() = prefs.getLong(KEY_LAST_UPDATE_CHECK, 0L)
         set(value) = prefs.edit().putLong(KEY_LAST_UPDATE_CHECK, value).apply()
@@ -90,6 +86,17 @@ class AppPreferences(context: Context) {
         get() = prefs.getString(KEY_APP_LANGUAGE, LANG_SYSTEM) ?: LANG_SYSTEM
         set(value) = prefs.edit().putString(KEY_APP_LANGUAGE, value).apply()
 
+    // ── Log retention ────────────────────────────────────────────────────────
+
+    /**
+     * Automatic log cleanup threshold in days.
+     * 0 = never delete automatically.
+     * Supported values: 0, 7, 30, 90.
+     */
+    var logRetentionDays: Int
+        get() = prefs.getInt(KEY_LOG_RETENTION_DAYS, 0)
+        set(value) = prefs.edit().putInt(KEY_LOG_RETENTION_DAYS, value).apply()
+
     // ── UI state persistence ─────────────────────────────────────────────────
 
     /** Ordinal of the last selected tab in SettingsScreen. Restored after Activity recreate(). */
@@ -110,6 +117,7 @@ class AppPreferences(context: Context) {
         private const val KEY_LAST_UPDATE_CHECK      = "last_update_check_at"
         private const val KEY_PROTECTED_SIM          = "protected_sim"
         private const val KEY_APP_LANGUAGE           = "app_language"
+        private const val KEY_LOG_RETENTION_DAYS     = "log_retention_days"
         private const val KEY_LAST_SETTINGS_TAB      = "last_settings_tab"
 
         const val NOTIFICATION_CHANNEL_ID   = "blocked_calls"

@@ -4,7 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.4.0] - Latest
+## [v1.5.0] - Latest
+
+### New Features
+- **Rich blocked call log** — each number in the log is now tappable and opens a detail screen with full information
+- **Call detail screen** — shows formatted number, country and operator (detected offline from prefix table, no network calls), number type (mobile / landline / VoIP / toll-free), total blocked attempts, and the date/time of each individual attempt
+- **SIM per attempt** — each call attempt in the detail screen shows which SIM it arrived on (dual-SIM devices only)
+- **Quick "Add to whitelist"** — button directly on the call detail screen to whitelist a number without navigating to the contacts screen
+- **"Search online" button** — opens the browser with the number as a search query; no data is sent automatically, the user decides
+- **Automatic log cleanup** — new option in Settings → Protection to automatically delete log entries older than 7, 30, or 90 days (default: never)
+- **Suspension banner on Home** — when protection is suspended from Settings, the Home screen now shows a banner with the expiry date/time without requiring an app restart
+
+### Bug Fixes
+- Fixed Home screen toggle not reflecting suspension changes made in Settings without reopening the app
+- Fixed number formatting and country/operator detection for numbers stored without leading `+` (pre-existing log entries)
+- Fixed call detail showing 0 attempts for numbers stored without `+` prefix (query now normalises both sides)
+
+### Improvements
+- Settings tab selection is now remembered across sessions and app restarts (no longer resets to Protection tab on reopen)
+- Responsive layout on Home screen: both portrait and landscape are fully scrollable and adapt correctly when a large system font size is set
+- Landscape mode is now a two-column layout instead of a non-scrollable single column
+
+### Configuration
+- Bumped Room database to version 3 with non-destructive migration (adds `simSlot` column to `blocked_calls`)
+- Bumped `versionCode` to 5 and `versionName` to `1.5.0`
+
+---
+
+## [v1.4.0]
 
 ### New Features
 - **Dual SIM support** — choose which SIM card(s) to protect: SIM 1, SIM 2, or both; selector is hidden automatically on single-SIM devices

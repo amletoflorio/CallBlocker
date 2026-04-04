@@ -15,6 +15,7 @@ import com.amlet.callblocker.data.db.AppDatabase
 import com.amlet.callblocker.data.db.BlockedCallEntity
 import com.amlet.callblocker.data.prefs.AppPreferences
 import com.amlet.callblocker.data.repository.ContactRepository
+import com.amlet.callblocker.util.PhoneUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -27,7 +28,7 @@ class CallBlockerService : CallScreeningService() {
     private lateinit var prefs: AppPreferences
     private lateinit var db: AppDatabase
 
-    // Coroutine scope for async operations (log writes) — cancelled in onDestroy
+    // Coroutine scope for async operations (log writes) — cancelled in onDestroy.
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -54,7 +55,7 @@ class CallBlockerService : CallScreeningService() {
                 }
                 rawNumber.isNullOrBlank() -> {
                     android.util.Log.d("CallBlocker", "Empty number → BLOCK")
-                    logBlockedCall("Unknown number")
+                    logBlockedCall("Unknown number", callDetails)
                     notifyBlocked("Unknown number")
                     buildBlockResponse()
                 }
@@ -72,7 +73,7 @@ class CallBlockerService : CallScreeningService() {
                         buildAllowResponse()
                     } else {
                         android.util.Log.d("CallBlocker", "→ BLOCK")
-                        logBlockedCall(rawNumber)
+                        logBlockedCall(rawNumber, callDetails)
                         notifyBlocked(rawNumber)
                         buildBlockResponse()
                     }
@@ -84,6 +85,26 @@ class CallBlockerService : CallScreeningService() {
         }
 
         respondToCall(callDetails, response)
+    }
+
+    /**
+     * Returns a human-readable SIM slot label ("SIM1" / "SIM2") if determinable,
+     * null otherwise (single-SIM or older API).
+     */
+    private fun simSlotFor(callDetails: Call.Details): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
+        return try {
+            val id = callDetails.accountHandle?.id ?: return null
+            when {
+                id.endsWith("0") || id.contains("slot0", ignoreCase = true) ||
+                    id.contains("SIM1", ignoreCase = true) -> "SIM1"
+                id.endsWith("1") || id.contains("slot1", ignoreCase = true) ||
+                    id.contains("SIM2", ignoreCase = true) -> "SIM2"
+                else -> null
+            }
+        } catch (e: Exception) {
+            null
+        }
     }
 
     /**
@@ -104,10 +125,10 @@ class CallBlockerService : CallScreeningService() {
                     else -> true
                 }
             } else {
-                true // Cannot determine SIM slot on older APIs — protect all
+                true // Cannot determine SIM slot on older APIs — protect all.
             }
         } catch (e: Exception) {
-            true // Fail safe: protect the call
+            true // Fail safe: protect the call.
         }
     }
 
@@ -140,16 +161,51 @@ class CallBlockerService : CallScreeningService() {
             .setRejectCall(false)
             .build()
 
-    // ── Call log ─────────────────────────────────────────────────────────────
+    // ── Call log ──────────────────────────────────────────────────────────────
 
-    private fun logBlockedCall(number: String) {
+    /**
+     * Persists a blocked-call record, capturing all available metadata from
+     * [callDetails]: SIM slot, call direction, and raw account handle ID.
+     */
+    private fun logBlockedCall(number: String, callDetails: Call.Details) {
+        val simSlot = simSlotFor(callDetails)
+        val accountHandleId = try { callDetails.accountHandle?.id } catch (e: Exception) { null }
+        val callDirection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            try {
+                when (callDetails.callDirection) {
+                    Call.Details.DIRECTION_INCOMING -> "Incoming"
+                    Call.Details.DIRECTION_OUTGOING -> "Outgoing"
+                    else -> "Unknown"
+                }
+            } catch (e: Exception) { null }
+        } else null
+
         serviceScope.launch {
             try {
-                db.blockedCallDao().insert(BlockedCallEntity(phoneNumber = number))
+                db.blockedCallDao().insert(
+                    BlockedCallEntity(
+                        phoneNumber     = PhoneUtils.normalize(number),
+                        simSlot         = simSlot,
+                        callDirection   = callDirection,
+                        accountHandleId = accountHandleId
+                    )
+                )
+                pruneLogIfNeeded()
             } catch (e: Exception) {
                 android.util.Log.e("CallBlocker", "Log write error: ${e.message}")
             }
         }
+    }
+
+    /**
+     * Deletes log entries older than the configured retention threshold.
+     * No-op when retention is set to 0 (never delete).
+     */
+    private suspend fun pruneLogIfNeeded() {
+        val days = prefs.logRetentionDays
+        if (days <= 0) return
+        val cutoffMs = System.currentTimeMillis() - days * 24L * 60 * 60 * 1000
+        db.blockedCallDao().deleteOlderThan(cutoffMs)
     }
 
     // ── Notifications ─────────────────────────────────────────────────────────

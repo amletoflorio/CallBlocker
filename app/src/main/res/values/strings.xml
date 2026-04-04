@@ -8,6 +8,8 @@
     <!-- HomeScreen -->
     <string name="home_status_active">ACTIVE</string>
     <string name="home_status_inactive">INACTIVE</string>
+    <string name="home_status_suspended">SUSPENDED</string>
+    <string name="home_suspended_until">Suspended until %1$s</string>
     <string name="home_stat_contacts">Allowed\ncontacts</string>
     <string name="home_stat_blocked">Blocked</string>
     <string name="home_btn_whitelist">Manage whitelist</string>
@@ -47,9 +49,37 @@
     <string name="call_log_clear">Clear log</string>
     <string name="call_log_clear_confirm">Delete all %1$d blocked calls from the log?</string>
     <string name="call_log_blocked_label">Blocked</string>
+    <string name="call_log_attempts">%1$d attempts</string>
     <string name="call_log_unknown">Unknown number</string>
     <string name="call_log_today">Today</string>
     <string name="call_log_yesterday">Yesterday</string>
+
+    <!-- CallDetailScreen -->
+    <string name="call_detail_title">Call detail</string>
+    <string name="call_detail_attempts">%1$d blocked attempt(s)</string>
+    <string name="call_detail_info_title">Number information</string>
+    <string name="call_detail_country">Country</string>
+    <string name="call_detail_operator">Operator</string>
+    <string name="call_detail_type">Type</string>
+    <string name="call_detail_type_mobile">Mobile</string>
+    <string name="call_detail_type_landline">Landline</string>
+    <string name="call_detail_type_voip">VoIP</string>
+    <string name="call_detail_type_toll_free">Toll-free</string>
+    <string name="call_detail_type_unknown">Unknown</string>
+    <string name="call_detail_sim">SIM</string>
+    <string name="call_detail_add_whitelist">Add to whitelist</string>
+    <string name="call_detail_search_online">Search online</string>
+    <string name="call_detail_history_title">Call history</string>
+    <string name="call_detail_last_attempt">Last attempt</string>
+    <string name="call_detail_first_attempt">First attempt</string>
+    <string name="call_detail_whitelist_title">Add to whitelist</string>
+    <string name="call_detail_whitelist_subtitle">Enter a name for %1$s to save it to your whitelist.</string>
+    <string name="call_detail_whitelist_name_label">Name *</string>
+    <string name="call_detail_whitelist_name_hint">E.g. Dentist, BRT courier…</string>
+    <string name="call_detail_whitelist_notes_label">Notes (optional)</string>
+    <string name="call_detail_whitelist_notes_hint">Any extra info about this number</string>
+    <string name="call_detail_whitelist_confirm">Add</string>
+    <string name="call_detail_already_whitelisted">Already in whitelist</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Settings</string>
@@ -73,6 +103,14 @@
     <string name="settings_suspend_dialog_cancel">Cancel</string>
     <string name="settings_notify_title">Notify blocked calls</string>
     <string name="settings_notify_subtitle">Receive a notification every time a call is blocked</string>
+
+    <!-- Settings — Log retention -->
+    <string name="settings_log_retention_title">Auto-clean log</string>
+    <string name="settings_log_retention_subtitle">Automatically delete blocked call records older than…</string>
+    <string name="settings_log_retention_never">Never</string>
+    <string name="settings_log_retention_7d">7 days</string>
+    <string name="settings_log_retention_30d">30 days</string>
+    <string name="settings_log_retention_90d">90 days</string>
 
     <!-- HomeScreen — SIM badge -->
     <string name="home_sim_badge_sim1">SIM 1 protected</string>
@@ -143,6 +181,16 @@
     <string name="changelog_type_fix">FIX</string>
     <string name="changelog_type_improve">IMPROVE</string>
 
+    <!-- Changelog entries — v1.5.0 -->
+    <string name="changelog_1_5_0_1">Blocked call log: tappable entries with full detail screen (country, operator, type, history)</string>
+    <string name="changelog_1_5_0_2">Call detail: Add to whitelist button and Search online shortcut</string>
+    <string name="changelog_1_5_0_3">SIM slot recorded for each blocked call and shown in log and detail</string>
+    <string name="changelog_1_5_0_4">Auto-clean log: configurable retention (7 / 30 / 90 days or never)</string>
+    <string name="changelog_1_5_0_5">Home: suspension banner shows the date/time the protection resumes</string>
+    <string name="changelog_1_5_0_6">Home toggle updates instantly when protection is suspended from Settings</string>
+    <string name="changelog_1_5_0_7">Settings: last active tab is remembered across sessions</string>
+    <string name="changelog_1_5_0_8">Improved layout responsiveness for large system font sizes and landscape mode</string>
+
     <!-- Changelog entries — v1.4.0 -->
     <string name="changelog_1_4_0_1">Dual SIM support: choose which SIM card(s) to protect</string>
     <string name="changelog_1_4_0_2">Language selector: system default, English, Italian</string>
@@ -182,6 +230,8 @@
     <string name="msg_import_success">%1$d contacts imported</string>
     <string name="msg_import_error">Import error: %1$s</string>
     <string name="msg_generic_error">Error: %1$s</string>
+    <string name="msg_added_to_whitelist">Number added to whitelist</string>
+    <string name="msg_already_in_whitelist">Number is already in the whitelist</string>
 
     <!-- NotificationHelper -->
     <string name="notif_channel_backup_name">Backup &amp; restore</string>

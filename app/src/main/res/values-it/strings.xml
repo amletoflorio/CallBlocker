@@ -8,6 +8,8 @@
     <!-- HomeScreen -->
     <string name="home_status_active">ATTIVO</string>
     <string name="home_status_inactive">DISATTIVO</string>
+    <string name="home_status_suspended">SOSPESO</string>
+    <string name="home_suspended_until">Protezione sospesa fino alle %1$s</string>
     <string name="home_stat_contacts">Contatti\nconsentiti</string>
     <string name="home_stat_blocked">Bloccate</string>
     <string name="home_btn_whitelist">Gestisci whitelist</string>
@@ -47,9 +49,37 @@
     <string name="call_log_clear">Svuota log</string>
     <string name="call_log_clear_confirm">Eliminare tutte le %1$d chiamate bloccate dal log?</string>
     <string name="call_log_blocked_label">Bloccata</string>
+    <string name="call_log_attempts">%1$d tentativi</string>
     <string name="call_log_unknown">Numero sconosciuto</string>
     <string name="call_log_today">Oggi</string>
     <string name="call_log_yesterday">Ieri</string>
+
+    <!-- CallDetailScreen -->
+    <string name="call_detail_title">Dettaglio chiamata</string>
+    <string name="call_detail_attempts">%1$d tentativo/i bloccato/i</string>
+    <string name="call_detail_info_title">Informazioni numero</string>
+    <string name="call_detail_country">Paese</string>
+    <string name="call_detail_operator">Operatore</string>
+    <string name="call_detail_type">Tipo</string>
+    <string name="call_detail_type_mobile">Mobile</string>
+    <string name="call_detail_type_landline">Fisso</string>
+    <string name="call_detail_type_voip">VoIP</string>
+    <string name="call_detail_type_toll_free">Numero verde</string>
+    <string name="call_detail_type_unknown">Sconosciuto</string>
+    <string name="call_detail_sim">SIM</string>
+    <string name="call_detail_add_whitelist">Whitelist</string>
+    <string name="call_detail_search_online">Cerca online</string>
+    <string name="call_detail_history_title">Storico chiamate</string>
+    <string name="call_detail_last_attempt">Ultimo tentativo</string>
+    <string name="call_detail_first_attempt">Primo tentativo</string>
+    <string name="call_detail_whitelist_title">Aggiungi alla whitelist</string>
+    <string name="call_detail_whitelist_subtitle">Inserisci un nome per %1$s per aggiungerlo alla whitelist.</string>
+    <string name="call_detail_whitelist_name_label">Nome *</string>
+    <string name="call_detail_whitelist_name_hint">Es. Dentista, Corriere BRT…</string>
+    <string name="call_detail_whitelist_notes_label">Note (opzionale)</string>
+    <string name="call_detail_whitelist_notes_hint">Informazioni aggiuntive su questo numero</string>
+    <string name="call_detail_whitelist_confirm">Aggiungi</string>
+    <string name="call_detail_already_whitelisted">Già in whitelist</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Impostazioni</string>
@@ -74,6 +104,14 @@
     <string name="settings_notify_title">Notifica chiamate bloccate</string>
     <string name="settings_notify_subtitle">Ricevi una notifica ogni volta che una chiamata viene bloccata</string>
 
+    <!-- Settings — Log retention -->
+    <string name="settings_log_retention_title">Pulizia automatica log</string>
+    <string name="settings_log_retention_subtitle">Elimina automaticamente i log più vecchi di…</string>
+    <string name="settings_log_retention_never">Mai</string>
+    <string name="settings_log_retention_7d">7 giorni</string>
+    <string name="settings_log_retention_30d">30 giorni</string>
+    <string name="settings_log_retention_90d">90 giorni</string>
+
     <!-- HomeScreen — SIM badge -->
     <string name="home_sim_badge_sim1">SIM 1 protetta</string>
     <string name="home_sim_badge_sim2">SIM 2 protetta</string>
@@ -91,7 +129,7 @@
     <string name="settings_export_subtitle">Salva i tuoi contatti consentiti in un file JSON</string>
     <string name="settings_import_title">Importa whitelist</string>
     <string name="settings_import_subtitle">Ripristina contatti da un file di backup JSON.\nAttenzione: sovrascriverà la lista attuale.</string>
-    <string name="settings_backup_info">Il backup include tutti i contatti della whitelist in formato JSON. Puoi usarlo per trasferire la lista su un altro dispositivo.</string>
+    <string name="settings_backup_info">Il backup include tutti i contatti della whitelist in formato JSON.</string>
     <string name="settings_backup_filename">callblocker_backup.json</string>
 
     <!-- Settings — Auto backup -->
@@ -143,6 +181,16 @@
     <string name="changelog_type_fix">FIX</string>
     <string name="changelog_type_improve">MIGLIORIA</string>
 
+    <!-- Changelog entries — v1.5.0 -->
+    <string name="changelog_1_5_0_1">Log chiamate: tocca un numero per vedere paese, operatore e tipo (offline)</string>
+    <string name="changelog_1_5_0_2">Dettaglio chiamata: pulsante rapido whitelist e ricerca online</string>
+    <string name="changelog_1_5_0_3">SIM registrata per ogni chiamata bloccata</string>
+    <string name="changelog_1_5_0_4">Pulizia automatica log: 7 / 30 / 90 giorni o mai</string>
+    <string name="changelog_1_5_0_5">Home: banner mostra la data/ora di ripristino durante la sospensione</string>
+    <string name="changelog_1_5_0_6">Risolto: il toggle in home si aggiorna subito dopo la sospensione dalle impostazioni</string>
+    <string name="changelog_1_5_0_7">Risolto: le impostazioni ricordano l\'ultima tab attiva</string>
+    <string name="changelog_1_5_0_8">Layout responsive per font grandi e modalità landscape</string>
+
     <!-- Changelog entries — v1.4.0 -->
     <string name="changelog_1_4_0_1">Supporto Dual SIM: scegli quale SIM proteggere</string>
     <string name="changelog_1_4_0_2">Selettore lingua: sistema, inglese, italiano</string>
@@ -182,6 +230,8 @@
     <string name="msg_import_success">Importati %1$d contatti</string>
     <string name="msg_import_error">Errore import: %1$s</string>
     <string name="msg_generic_error">Errore: %1$s</string>
+    <string name="msg_added_to_whitelist">Numero aggiunto alla whitelist</string>
+    <string name="msg_already_in_whitelist">Numero già presente nella whitelist</string>
 
     <!-- NotificationHelper -->
     <string name="notif_channel_backup_name">Backup e ripristino</string>

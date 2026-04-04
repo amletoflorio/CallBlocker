@@ -10,7 +10,9 @@ import com.amlet.callblocker.R
 import com.amlet.callblocker.data.backup.BackupManager
 import com.amlet.callblocker.data.db.BlockedCallEntity
 import com.amlet.callblocker.data.db.ContactEntity
+import com.amlet.callblocker.data.prefs.AppPreferences
 import com.amlet.callblocker.data.repository.ContactRepository
+import com.amlet.callblocker.util.PhoneUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -105,6 +107,60 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
             showSnackbar(getApplication<Application>().getString(R.string.msg_log_cleared))
         }
     }
+
+    /**
+     * Applies the log retention policy immediately (e.g. when the user changes
+     * the setting). No-op when retentionDays is 0.
+     */
+    fun applyLogRetention(retentionDays: Int) {
+        if (retentionDays <= 0) return
+        viewModelScope.launch {
+            val cutoffMs = System.currentTimeMillis() - retentionDays * 24L * 60 * 60 * 1000
+            db.blockedCallDao().deleteOlderThan(cutoffMs)
+        }
+    }
+
+    /**
+     * Adds [phoneNumber] directly to the whitelist with an auto-generated name.
+     * Used by the "Add to whitelist" quick-action on the call detail screen.
+     */
+    /**
+     * Adds [phoneNumber] to the whitelist with a user-supplied name and optional notes.
+     * Called from the "Add to whitelist" dialog on the call detail screen.
+     */
+    fun quickAddToWhitelist(phoneNumber: String, name: String, notes: String) {
+        viewModelScope.launch {
+            try {
+                // Check if already present to avoid duplicates.
+                if (repository.findByNumber(phoneNumber) != null) {
+                    showSnackbar(getApplication<Application>().getString(R.string.msg_already_in_whitelist))
+                    return@launch
+                }
+                repository.addContact(
+                    name = name.ifBlank { phoneNumber },
+                    phoneNumber = phoneNumber,
+                    notes = notes
+                )
+                showSnackbar(getApplication<Application>().getString(R.string.msg_added_to_whitelist))
+            } catch (e: Exception) {
+                showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
+            }
+        }
+    }
+
+    /** Returns a cold flow of all blocked call attempts for the given number. */
+    fun callsForNumber(number: String): Flow<List<BlockedCallEntity>> =
+        db.blockedCallDao().getCallsForNumber(number)
+
+    /**
+     * Returns a cold flow that emits true when [number] is present in the whitelist.
+     * Normalises the number before checking so +39xxx and 39xxx both match.
+     */
+    fun isInWhitelist(number: String): Flow<Boolean> =
+        repository.allContacts.map { contacts ->
+            val normalised = PhoneUtils.normalize(number)
+            contacts.any { PhoneUtils.normalize(it.phoneNumber) == normalised }
+        }
 
     fun updateSearchQuery(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
