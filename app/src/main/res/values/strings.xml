@@ -25,6 +25,7 @@
     <string name="contacts_add_description">Add contacts who can call you even if they\'re not in your phonebook.</string>
     <string name="contacts_delete_confirm">Remove contact?</string>
     <string name="contacts_delete_confirm_btn">Remove</string>
+    <string name="contacts_temporary_badge">Temp · expires %1$s</string>
 
     <!-- AddContactScreen -->
     <string name="add_contact_title">Add contact</string>
@@ -67,7 +68,7 @@
     <string name="call_detail_type_toll_free">Toll-free</string>
     <string name="call_detail_type_unknown">Unknown</string>
     <string name="call_detail_sim">SIM</string>
-    <string name="call_detail_add_whitelist">Add to whitelist</string>
+    <string name="call_detail_add_whitelist">Whitelist</string>
     <string name="call_detail_search_online">Search online</string>
     <string name="call_detail_history_title">Call history</string>
     <string name="call_detail_last_attempt">Last attempt</string>
@@ -83,13 +84,16 @@
 
     <!-- SettingsScreen -->
     <string name="settings_title">Settings</string>
-    <string name="settings_tab_protection">Protection</string>
+    <string name="settings_tab_calls">Calls</string>
+    <string name="settings_tab_boot">Boot</string>
     <string name="settings_tab_backup">Backup</string>
     <string name="settings_tab_updates">Updates</string>
     <string name="settings_tab_info">Info</string>
+    <!-- Keep old key as alias for any code that still references it -->
+    <string name="settings_tab_protection">Calls</string>
     <string name="settings_back">Back</string>
 
-    <!-- Settings — Protection tab -->
+    <!-- Settings — Calls tab (formerly Protection) -->
     <string name="settings_suspend_title">Suspend protection</string>
     <string name="settings_suspend_subtitle">Allow all calls for a period</string>
     <string name="settings_suspend_active_until">Active until: %1$s</string>
@@ -112,6 +116,18 @@
     <string name="settings_log_retention_30d">30 days</string>
     <string name="settings_log_retention_90d">90 days</string>
 
+    <!-- Settings — Advanced retry rule -->
+    <string name="settings_retry_rule_title">Allow after X attempts</string>
+    <string name="settings_retry_rule_subtitle">Let a blocked number through if it calls repeatedly in a short time</string>
+    <string name="settings_retry_rule_attempts_label">Attempts: %1$d</string>
+    <string name="settings_retry_rule_window_label">Time window</string>
+    <string name="settings_retry_rule_info">If the number calls %1$d or more times in %2$d minutes, it will be allowed and temporarily added to the whitelist for %3$d minutes.</string>
+
+    <!-- Settings — Boot tab -->
+    <string name="settings_boot_title">Reactivate on boot</string>
+    <string name="settings_boot_subtitle">Show the permission dialog at boot to restore protection with a single tap</string>
+    <string name="settings_boot_info">Android does not allow apps to silently re-acquire the call screening role after a reboot. When enabled, CallBlocker will open the system permission dialog at boot so you only need to tap "Allow" to restore protection — without opening the app manually.</string>
+
     <!-- HomeScreen — SIM badge -->
     <string name="home_sim_badge_sim1">SIM 1 protected</string>
     <string name="home_sim_badge_sim2">SIM 2 protected</string>
@@ -119,7 +135,8 @@
 
     <!-- Settings — Dual SIM -->
     <string name="settings_sim_title">Protected SIM</string>
-    <string name="settings_sim_subtitle">Choose which SIM card(s) to protect</string>
+    <string name="settings_sim_subtitle">Choose which SIM card(s) to protect. The SIM is detected automatically from your call history.</string>
+    <string name="settings_sim_rescan">Re-detect SIM</string>
     <string name="settings_sim_1">SIM 1</string>
     <string name="settings_sim_2">SIM 2</string>
     <string name="settings_sim_both">Both</string>
@@ -163,6 +180,8 @@
     <string name="settings_language_it">Italiano</string>
     <string name="settings_github_title">Source code</string>
     <string name="settings_github_subtitle">Open the repository on GitHub</string>
+    <string name="settings_donate_title">Support the project ☕</string>
+    <string name="settings_donate_subtitle">Buy me a coffee on Ko-fi</string>
     <string name="settings_how_it_works_title">How it works</string>
     <string name="settings_how_it_works_body">CallBlocker uses Android\'s CallScreeningService. No data is sent to external servers. Everything stays on your device.</string>
     <string name="settings_credits_title">App developed by Amlet</string>
@@ -180,6 +199,14 @@
     <string name="changelog_type_new">NEW</string>
     <string name="changelog_type_fix">FIX</string>
     <string name="changelog_type_improve">IMPROVE</string>
+
+    <!-- Changelog entries — v1.6.0 -->
+    <string name="changelog_1_6_0_1">Advanced rule: allow a blocked number after X attempts in Y minutes</string>
+    <string name="changelog_1_6_0_2">Temporary whitelist: numbers auto-whitelisted by the retry rule expire after the window</string>
+    <string name="changelog_1_6_0_3">Boot receiver: option to auto-prompt for call screening role after reboot</string>
+    <string name="changelog_1_6_0_4">Fixed: outgoing calls no longer appear in the blocked log</string>
+    <string name="changelog_1_6_0_5">Fixed: outgoing calls no longer trigger a blocked notification</string>
+    <string name="changelog_1_6_0_6">Settings split into Calls / Boot tabs for clearer organisation</string>
 
     <!-- Changelog entries — v1.5.0 -->
     <string name="changelog_1_5_0_1">Blocked call log: tappable entries with full detail screen (country, operator, type, history)</string>
@@ -242,6 +269,8 @@
     <string name="notif_restore_error_title">Restore error</string>
     <string name="notif_channel_blocked_name">Blocked calls</string>
     <string name="notif_blocked_title">Blocked call</string>
+    <string name="notif_retry_rule_title">Call allowed through</string>
+    <string name="notif_retry_rule_text">%1$s called %2$d times in %3$d minutes and was allowed through.</string>
     <string name="notif_auto_backup_success_title">Auto backup completed</string>
     <string name="notif_auto_backup_success_text">%1$d contacts saved to Documents/CallBlocker/</string>
     <string name="notif_auto_backup_error_title">Auto backup failed</string>

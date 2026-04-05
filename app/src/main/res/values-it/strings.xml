@@ -25,6 +25,7 @@
     <string name="contacts_add_description">Aggiungi contatti che possono chiamarti anche se non sono in rubrica.</string>
     <string name="contacts_delete_confirm">Rimuovere il contatto?</string>
     <string name="contacts_delete_confirm_btn">Rimuovi</string>
+    <string name="contacts_temporary_badge">Temp · scade %1$s</string>
 
     <!-- AddContactScreen -->
     <string name="add_contact_title">Aggiungi contatto</string>
@@ -69,33 +70,35 @@
     <string name="call_detail_sim">SIM</string>
     <string name="call_detail_add_whitelist">Whitelist</string>
     <string name="call_detail_search_online">Cerca online</string>
-    <string name="call_detail_history_title">Storico chiamate</string>
+    <string name="call_detail_history_title">Cronologia chiamate</string>
     <string name="call_detail_last_attempt">Ultimo tentativo</string>
     <string name="call_detail_first_attempt">Primo tentativo</string>
     <string name="call_detail_whitelist_title">Aggiungi alla whitelist</string>
-    <string name="call_detail_whitelist_subtitle">Inserisci un nome per %1$s per aggiungerlo alla whitelist.</string>
+    <string name="call_detail_whitelist_subtitle">Inserisci un nome per %1$s per salvarlo nella whitelist.</string>
     <string name="call_detail_whitelist_name_label">Nome *</string>
     <string name="call_detail_whitelist_name_hint">Es. Dentista, Corriere BRT…</string>
     <string name="call_detail_whitelist_notes_label">Note (opzionale)</string>
-    <string name="call_detail_whitelist_notes_hint">Informazioni aggiuntive su questo numero</string>
+    <string name="call_detail_whitelist_notes_hint">Informazioni extra su questo numero</string>
     <string name="call_detail_whitelist_confirm">Aggiungi</string>
-    <string name="call_detail_already_whitelisted">Già in whitelist</string>
+    <string name="call_detail_already_whitelisted">Già nella whitelist</string>
 
     <!-- SettingsScreen -->
     <string name="settings_title">Impostazioni</string>
-    <string name="settings_tab_protection">Protezione</string>
+    <string name="settings_tab_calls">Chiamate</string>
+    <string name="settings_tab_boot">Avvio</string>
     <string name="settings_tab_backup">Backup</string>
     <string name="settings_tab_updates">Aggiornamenti</string>
     <string name="settings_tab_info">Info</string>
+    <string name="settings_tab_protection">Chiamate</string>
     <string name="settings_back">Indietro</string>
 
-    <!-- Settings — Protection tab -->
+    <!-- Settings — Calls tab -->
     <string name="settings_suspend_title">Sospendi protezione</string>
     <string name="settings_suspend_subtitle">Consenti tutte le chiamate per un periodo</string>
-    <string name="settings_suspend_active_until">Attiva fino a: %1$s</string>
-    <string name="settings_suspend_resume">Riattiva ora</string>
+    <string name="settings_suspend_active_until">Attiva fino alle: %1$s</string>
+    <string name="settings_suspend_resume">Riprendi ora</string>
     <string name="settings_suspend_dialog_title">Sospendi protezione</string>
-    <string name="settings_suspend_dialog_body">Scegli per quanto tempo sospendere il blocco chiamate.</string>
+    <string name="settings_suspend_dialog_body">Scegli per quanto tempo sospendere il blocco delle chiamate.</string>
     <string name="settings_suspend_dialog_days">Giorni</string>
     <string name="settings_suspend_dialog_hours">Ore</string>
     <string name="settings_suspend_dialog_min_error">Seleziona almeno 1 ora</string>
@@ -106,11 +109,23 @@
 
     <!-- Settings — Log retention -->
     <string name="settings_log_retention_title">Pulizia automatica log</string>
-    <string name="settings_log_retention_subtitle">Elimina automaticamente i log più vecchi di…</string>
+    <string name="settings_log_retention_subtitle">Elimina automaticamente i record più vecchi di…</string>
     <string name="settings_log_retention_never">Mai</string>
     <string name="settings_log_retention_7d">7 giorni</string>
     <string name="settings_log_retention_30d">30 giorni</string>
     <string name="settings_log_retention_90d">90 giorni</string>
+
+    <!-- Settings — Advanced retry rule -->
+    <string name="settings_retry_rule_title">Consenti dopo X tentativi</string>
+    <string name="settings_retry_rule_subtitle">Lascia passare un numero bloccato se chiama ripetutamente in poco tempo</string>
+    <string name="settings_retry_rule_attempts_label">Tentativi: %1$d</string>
+    <string name="settings_retry_rule_window_label">Finestra temporale</string>
+    <string name="settings_retry_rule_info">Se il numero chiama %1$d o più volte in %2$d minuti, verrà lasciato passare e aggiunto temporaneamente alla whitelist per %3$d minuti.</string>
+
+    <!-- Settings — Boot tab -->
+    <string name="settings_boot_title">Riattiva al riavvio</string>
+    <string name="settings_boot_subtitle">Mostra il dialog di autorizzazione all\'avvio per ripristinare la protezione con un tap</string>
+    <string name="settings_boot_info">Android non permette alle app di riacquisire silenziosamente il ruolo di screening al riavvio. Se abilitato, CallBlocker aprirà il dialog di autorizzazione di sistema all\'avvio: basterà toccare "Consenti" per ripristinare la protezione senza aprire l\'app manualmente.</string>
 
     <!-- HomeScreen — SIM badge -->
     <string name="home_sim_badge_sim1">SIM 1 protetta</string>
@@ -119,16 +134,17 @@
 
     <!-- Settings — Dual SIM -->
     <string name="settings_sim_title">SIM protetta</string>
-    <string name="settings_sim_subtitle">Scegli quale SIM proteggere</string>
+    <string name="settings_sim_subtitle">Scegli quale SIM proteggere. La SIM viene rilevata automaticamente dalla cronologia chiamate.</string>
+    <string name="settings_sim_rescan">Ririleva SIM</string>
     <string name="settings_sim_1">SIM 1</string>
     <string name="settings_sim_2">SIM 2</string>
     <string name="settings_sim_both">Entrambe</string>
 
     <!-- Settings — Backup tab -->
     <string name="settings_export_title">Esporta whitelist</string>
-    <string name="settings_export_subtitle">Salva i tuoi contatti consentiti in un file JSON</string>
+    <string name="settings_export_subtitle">Salva i contatti consentiti in un file JSON</string>
     <string name="settings_import_title">Importa whitelist</string>
-    <string name="settings_import_subtitle">Ripristina contatti da un file di backup JSON.\nAttenzione: sovrascriverà la lista attuale.</string>
+    <string name="settings_import_subtitle">Ripristina i contatti da un file di backup JSON.\nAttenzione: sovrascriverà la lista attuale.</string>
     <string name="settings_backup_info">Il backup include tutti i contatti della whitelist in formato JSON.</string>
     <string name="settings_backup_filename">callblocker_backup.json</string>
 
@@ -146,75 +162,85 @@
 
     <!-- Settings — Updates tab -->
     <string name="settings_version_title">Versione attuale</string>
-    <string name="settings_check_updates_title">Controlla aggiornamenti automaticamente</string>
-    <string name="settings_check_updates_subtitle">Contatta GitHub Releases. Attiva per abilitare.</string>
+    <string name="settings_check_updates_title">Controllo aggiornamenti auto</string>
+    <string name="settings_check_updates_subtitle">Contatta GitHub Releases. Attiva per aderire.</string>
     <string name="settings_check_updates_btn">Controlla ora</string>
-    <string name="settings_check_updates_up_to_date">Hai già la versione più recente</string>
+    <string name="settings_check_updates_up_to_date">Hai già l\'ultima versione</string>
     <string name="settings_check_updates_error">Controllo fallito: %1$s</string>
     <string name="settings_notify_update_title">Notifica aggiornamenti disponibili</string>
-    <string name="settings_notify_update_subtitle">Mostra una notifica quando viene trovata una nuova versione</string>
+    <string name="settings_notify_update_subtitle">Mostra una notifica quando è disponibile una nuova versione</string>
 
     <!-- Settings — Info tab -->
     <string name="settings_whats_new_title">Novità</string>
     <string name="settings_whats_new_subtitle">Scopri cosa è cambiato in ogni versione</string>
     <string name="settings_language_title">Lingua</string>
-    <string name="settings_language_system">Predefinito di sistema</string>
+    <string name="settings_language_system">Predefinita di sistema</string>
     <string name="settings_language_en">English</string>
     <string name="settings_language_it">Italiano</string>
     <string name="settings_github_title">Codice sorgente</string>
     <string name="settings_github_subtitle">Apri il repository su GitHub</string>
+    <string name="settings_donate_title">Supporta il progetto ☕</string>
+    <string name="settings_donate_subtitle">Offrimi un caffè su Ko-fi</string>
     <string name="settings_how_it_works_title">Come funziona</string>
     <string name="settings_how_it_works_body">CallBlocker usa il CallScreeningService di Android. Nessun dato viene inviato a server esterni. Tutto rimane sul tuo dispositivo.</string>
     <string name="settings_credits_title">App sviluppata da Amlet</string>
-    <string name="settings_credits_subtitle">Fatto con cura per proteggere la tua privacy</string>
+    <string name="settings_credits_subtitle">Creata con cura per proteggere la tua privacy</string>
 
     <!-- Update dialog -->
-    <string name="update_notif_text">Versione %1$s disponibile su GitHub</string>
+    <string name="update_notif_text">La versione %1$s è disponibile su GitHub</string>
     <string name="update_dialog_title">Aggiornamento disponibile</string>
-    <string name="update_dialog_body">Versione %1$s → %2$s disponibile su GitHub.</string>
+    <string name="update_dialog_body">La versione %1$s → %2$s è disponibile su GitHub.</string>
     <string name="update_dialog_download">Scarica</string>
-    <string name="update_dialog_later">Più tardi</string>
+    <string name="update_dialog_later">Dopo</string>
 
     <!-- Changelog dialog -->
     <string name="changelog_title">Novità</string>
     <string name="changelog_type_new">NUOVO</string>
     <string name="changelog_type_fix">FIX</string>
-    <string name="changelog_type_improve">MIGLIORIA</string>
+    <string name="changelog_type_improve">MIGLIORAMENTO</string>
+
+    <!-- Changelog entries — v1.6.0 -->
+    <string name="changelog_1_6_0_1">Regola avanzata: lascia passare un numero bloccato dopo X tentativi in Y minuti</string>
+    <string name="changelog_1_6_0_2">Whitelist temporanea: i numeri aggiunti automaticamente dalla regola scadono alla fine della finestra</string>
+    <string name="changelog_1_6_0_3">Boot receiver: opzione per riaprire automaticamente il dialog di screening al riavvio</string>
+    <string name="changelog_1_6_0_4">Corretto: le chiamate effettuate non appaiono più nel log dei bloccati</string>
+    <string name="changelog_1_6_0_5">Corretto: le chiamate effettuate non generano più notifiche di blocco</string>
+    <string name="changelog_1_6_0_6">Impostazioni riorganizzate nei tab Chiamate / Avvio per maggiore chiarezza</string>
 
     <!-- Changelog entries — v1.5.0 -->
-    <string name="changelog_1_5_0_1">Log chiamate: tocca un numero per vedere paese, operatore e tipo (offline)</string>
-    <string name="changelog_1_5_0_2">Dettaglio chiamata: pulsante rapido whitelist e ricerca online</string>
-    <string name="changelog_1_5_0_3">SIM registrata per ogni chiamata bloccata</string>
-    <string name="changelog_1_5_0_4">Pulizia automatica log: 7 / 30 / 90 giorni o mai</string>
-    <string name="changelog_1_5_0_5">Home: banner mostra la data/ora di ripristino durante la sospensione</string>
-    <string name="changelog_1_5_0_6">Risolto: il toggle in home si aggiorna subito dopo la sospensione dalle impostazioni</string>
-    <string name="changelog_1_5_0_7">Risolto: le impostazioni ricordano l\'ultima tab attiva</string>
-    <string name="changelog_1_5_0_8">Layout responsive per font grandi e modalità landscape</string>
+    <string name="changelog_1_5_0_1">Log chiamate bloccate: voci cliccabili con schermata dettaglio (paese, operatore, tipo, cronologia)</string>
+    <string name="changelog_1_5_0_2">Dettaglio chiamata: pulsante Aggiungi alla whitelist e scorciatoia Cerca online</string>
+    <string name="changelog_1_5_0_3">SIM registrata per ogni chiamata bloccata e mostrata nel log e nel dettaglio</string>
+    <string name="changelog_1_5_0_4">Pulizia automatica log: retention configurabile (7 / 30 / 90 giorni o mai)</string>
+    <string name="changelog_1_5_0_5">Home: il banner di sospensione mostra la data/ora in cui riprende la protezione</string>
+    <string name="changelog_1_5_0_6">Il toggle Home si aggiorna immediatamente quando la protezione viene sospesa dalle Impostazioni</string>
+    <string name="changelog_1_5_0_7">Impostazioni: l\'ultimo tab attivo viene ricordato tra le sessioni</string>
+    <string name="changelog_1_5_0_8">Migliorata la reattività del layout per dimensioni font grandi e modalità landscape</string>
 
     <!-- Changelog entries — v1.4.0 -->
     <string name="changelog_1_4_0_1">Supporto Dual SIM: scegli quale SIM proteggere</string>
-    <string name="changelog_1_4_0_2">Selettore lingua: sistema, inglese, italiano</string>
+    <string name="changelog_1_4_0_2">Selettore lingua: predefinita di sistema, Inglese, Italiano</string>
     <string name="changelog_1_4_0_3">Schermata Novità con cronologia completa delle versioni</string>
-    <string name="changelog_1_4_0_4">Tab Aggiornamenti dedicata con controllo automatico e notifiche</string>
+    <string name="changelog_1_4_0_4">Tab Aggiornamenti dedicato con controllo automatico e notifiche</string>
 
     <!-- Changelog entries — v1.3.0 -->
     <string name="changelog_1_3_0_1">Backup automatico con intervallo configurabile (giornaliero / settimanale / mensile)</string>
     <string name="changelog_1_3_0_2">Backup salvati in Documenti/CallBlocker/ con nome file timestamp</string>
     <string name="changelog_1_3_0_3">Controllo aggiornamenti via GitHub Releases API con toggle opt-in</string>
-    <string name="changelog_1_3_0_4">Dialog aggiornamento con note di rilascio e link download</string>
-    <string name="changelog_1_3_0_5">Versione letta da BuildConfig invece di stringa statica</string>
+    <string name="changelog_1_3_0_4">Dialog aggiornamento con note di rilascio e link di download</string>
+    <string name="changelog_1_3_0_5">Versione ora letta da BuildConfig invece di stringa statica</string>
 
     <!-- Changelog entries — v1.2.0 -->
-    <string name="changelog_1_2_0_1">Supporto lingua italiana (rilevata automaticamente dal sistema)</string>
+    <string name="changelog_1_2_0_1">Supporto localizzazione italiana (rilevamento automatico)</string>
     <string name="changelog_1_2_0_2">Formattazione numeri migliorata per IT, DE, FR, ES, UK, US</string>
-    <string name="changelog_1_2_0_3">I contatti della whitelist ora sono modificabili</string>
+    <string name="changelog_1_2_0_3">I contatti della whitelist possono ora essere modificati</string>
     <string name="changelog_1_2_0_4">Tutte le stringhe UI estratte in strings.xml</string>
 
     <!-- Changelog entries — v1.1.0 -->
-    <string name="changelog_1_1_0_1">Risolto stato toggle non aggiornato correttamente al resume</string>
-    <string name="changelog_1_1_0_2">Risolto toggle: ora sospende/riprende la protezione invece di revocare il ruolo</string>
-    <string name="changelog_1_1_0_3">Schermata impostazioni rifatta con layout a tab (Protezione / Backup / Info)</string>
-    <string name="changelog_1_1_0_4">Feedback snackbar in-app per operazioni di export/import</string>
+    <string name="changelog_1_1_0_1">Corretto: stato toggle non si aggiornava correttamente alla ripresa</string>
+    <string name="changelog_1_1_0_2">Corretto: toggle sospende/riprende la protezione invece di revocare il ruolo</string>
+    <string name="changelog_1_1_0_3">Schermata Impostazioni ridisegnata con layout a tab</string>
+    <string name="changelog_1_1_0_4">Feedback snackbar in-app per operazioni di esportazione/importazione</string>
     <string name="changelog_1_1_0_5">Link GitHub aggiunto nel tab Info</string>
 
     <!-- Changelog entries — v1.0.0 -->
@@ -226,22 +252,24 @@
     <string name="msg_contact_deleted">%1$s rimosso dalla whitelist</string>
     <string name="msg_log_cleared">Log svuotato</string>
     <string name="msg_export_success">Backup esportato con successo (%1$d contatti)</string>
-    <string name="msg_export_error">Errore export: %1$s</string>
-    <string name="msg_import_success">Importati %1$d contatti</string>
-    <string name="msg_import_error">Errore import: %1$s</string>
+    <string name="msg_export_error">Errore esportazione: %1$s</string>
+    <string name="msg_import_success">%1$d contatti importati</string>
+    <string name="msg_import_error">Errore importazione: %1$s</string>
     <string name="msg_generic_error">Errore: %1$s</string>
     <string name="msg_added_to_whitelist">Numero aggiunto alla whitelist</string>
-    <string name="msg_already_in_whitelist">Numero già presente nella whitelist</string>
+    <string name="msg_already_in_whitelist">Il numero è già nella whitelist</string>
 
     <!-- NotificationHelper -->
     <string name="notif_channel_backup_name">Backup e ripristino</string>
-    <string name="notif_channel_backup_desc">Notifiche al completamento di export e import</string>
+    <string name="notif_channel_backup_desc">Notifiche al completamento di esportazione e importazione</string>
     <string name="notif_backup_success_title">Backup completato</string>
     <string name="notif_backup_error_title">Errore backup</string>
     <string name="notif_restore_success_title">Ripristino completato</string>
     <string name="notif_restore_error_title">Errore ripristino</string>
     <string name="notif_channel_blocked_name">Chiamate bloccate</string>
     <string name="notif_blocked_title">Chiamata bloccata</string>
+    <string name="notif_retry_rule_title">Chiamata lasciata passare</string>
+    <string name="notif_retry_rule_text">%1$s ha chiamato %2$d volte in %3$d minuti ed è stato lasciato passare.</string>
     <string name="notif_auto_backup_success_title">Backup automatico completato</string>
     <string name="notif_auto_backup_success_text">%1$d contatti salvati in Documenti/CallBlocker/</string>
     <string name="notif_auto_backup_error_title">Backup automatico fallito</string>

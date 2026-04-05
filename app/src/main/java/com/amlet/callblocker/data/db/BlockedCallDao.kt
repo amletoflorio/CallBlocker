@@ -6,36 +6,43 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface BlockedCallDao {
 
-    /** Reactive stream: the UI updates automatically on every new block. */
     @Query("SELECT * FROM blocked_calls ORDER BY blockedAt DESC")
     fun getAllBlocked(): Flow<List<BlockedCallEntity>>
 
-    /**
-     * All call attempts for a specific number, newest first.
-     * Applies the same normalisation as PhoneUtils.normalize() in SQL:
-     * strips all non-digit characters (+, spaces, dashes) and leading zeros,
-     * so that +39694807697, 39694807697, 0039694807697 all match each other.
-     */
     @Query(
         "SELECT * FROM blocked_calls " +
-        "WHERE LTRIM(REPLACE(REPLACE(REPLACE(phoneNumber, '+', ''), ' ', ''), '-', ''), '0') " +
-        "    = LTRIM(REPLACE(REPLACE(REPLACE(:number,    '+', ''), ' ', ''), '-', ''), '0') " +
-        "ORDER BY blockedAt DESC"
+                "WHERE LTRIM(REPLACE(REPLACE(REPLACE(phoneNumber, '+', ''), ' ', ''), '-', ''), '0') " +
+                "    = LTRIM(REPLACE(REPLACE(REPLACE(:number,    '+', ''), ' ', ''), '-', ''), '0') " +
+                "ORDER BY blockedAt DESC"
     )
     fun getCallsForNumber(number: String): Flow<List<BlockedCallEntity>>
 
-    /** Total number of unique blocked numbers (for the stats card). */
     @Query("SELECT COUNT(DISTINCT phoneNumber) FROM blocked_calls")
     fun getBlockedCount(): Flow<Int>
+
+    @Query(
+        "SELECT COUNT(*) FROM blocked_calls " +
+                "WHERE LTRIM(REPLACE(REPLACE(REPLACE(phoneNumber, '+', ''), ' ', ''), '-', ''), '0') " +
+                "    = LTRIM(REPLACE(REPLACE(REPLACE(:number,    '+', ''), ' ', ''), '-', ''), '0') " +
+                "AND callType = 'incoming' " +
+                "AND blockedAt >= :sinceMs"
+    )
+    suspend fun countCallsSince(number: String, sinceMs: Long): Int
+
+    /** Inserts a record and returns the generated row ID. Used to update simSlot later. */
+    @Insert
+    suspend fun insertAndGetId(call: BlockedCallEntity): Long
+
+    /** Updates the simSlot for a specific row — called after CallLog lookup on MIUI. */
+    @Query("UPDATE blocked_calls SET simSlot = :simSlot WHERE id = :id")
+    suspend fun updateSimSlot(id: Long, simSlot: String)
 
     @Insert
     suspend fun insert(call: BlockedCallEntity)
 
-    /** Deletes the entire log (used by "Clear log"). */
     @Query("DELETE FROM blocked_calls")
     suspend fun deleteAll()
 
-    /** Deletes log entries older than the given Unix timestamp in ms. */
     @Query("DELETE FROM blocked_calls WHERE blockedAt < :beforeMs")
     suspend fun deleteOlderThan(beforeMs: Long)
 }

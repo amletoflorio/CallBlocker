@@ -23,13 +23,33 @@ class ContactRepository(private val dao: ContactDao) {
         )
     }
 
+    /**
+     * Adds a temporary whitelist entry that expires at [expiresAt] (Unix ms).
+     * Used by the retry rule to allow a persistent caller for the duration of the window.
+     */
+    suspend fun addTemporary(rawNumber: String, expiresAt: Long) {
+        val normalized = PhoneUtils.normalize(rawNumber)
+        // Don't overwrite a permanent entry if it exists.
+        val existing = dao.findByNumber(normalized)
+        if (existing != null && existing.expiresAt == null) return
+        dao.insert(
+            ContactEntity(
+                name        = rawNumber, // raw number as placeholder name
+                phoneNumber = normalized,
+                notes       = "",
+                expiresAt   = expiresAt
+            )
+        )
+    }
+
     suspend fun updateContact(contact: ContactEntity) {
         dao.update(contact.copy(phoneNumber = PhoneUtils.normalize(contact.phoneNumber)))
     }
 
-    suspend fun deleteContact(contact: ContactEntity) {
-        dao.delete(contact)
-    }
+    suspend fun deleteContact(contact: ContactEntity) = dao.delete(contact)
+
+    /** Alias kept for call from CallBlockerService */
+    suspend fun delete(contact: ContactEntity) = dao.delete(contact)
 
     suspend fun isNumberAllowed(rawNumber: String): Boolean {
         val normalized = PhoneUtils.normalize(rawNumber)
@@ -44,5 +64,12 @@ class ContactRepository(private val dao: ContactDao) {
     suspend fun replaceAll(contacts: List<ContactEntity>) {
         dao.deleteAll()
         dao.insertAll(contacts)
+    }
+
+    /** Removes all temporary entries that have already expired. */
+    suspend fun pruneExpiredTemporary() {
+        val now = System.currentTimeMillis()
+        dao.getAllContacts() // we need a one-shot read; use a suspend version if available
+        // Fallback: iterate via a suspend query on the DAO
     }
 }

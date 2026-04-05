@@ -15,13 +15,11 @@ import com.amlet.callblocker.util.LocaleHelper
 
 class MainActivity : ComponentActivity() {
 
-    // True = the Call Screening role is held by this app
     private var isRoleHeld by mutableStateOf(false)
 
     private val roleRequestLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        // After the system dialog, update the actual role state
         checkRoleStatus()
     }
 
@@ -30,13 +28,11 @@ class MainActivity : ComponentActivity() {
     ) { /* optional handling */ }
 
     override fun attachBaseContext(newBase: Context) {
-        // Apply the saved language preference before the Activity inflates any views
         super.attachBaseContext(LocaleHelper.wrapContext(newBase))
     }
 
     override fun onResume() {
         super.onResume()
-        // Always refresh when returning to the app (e.g. after manual role revocation)
         checkRoleStatus()
     }
 
@@ -50,13 +46,18 @@ class MainActivity : ComponentActivity() {
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             permissions.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // Request READ_PHONE_STATE for dual-SIM detection
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
             permissions.add(Manifest.permission.READ_PHONE_STATE)
         }
         permissionLauncher.launch(permissions.toTypedArray())
 
         checkRoleStatus()
+
+        // Lanciato da BootReceiver dopo il riavvio: apri subito il dialog del ruolo.
+        // Controlliamo sia qui (onCreate) sia in onNewIntent (se l'Activity era già viva).
+        if (intent.getBooleanExtra(EXTRA_REQUEST_ROLE_ON_LAUNCH, false)) {
+            requestRole()
+        }
 
         setContent {
             CallBlockerTheme {
@@ -70,6 +71,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        // Gestisce il caso in cui MainActivity fosse già in memoria al boot.
+        if (intent.getBooleanExtra(EXTRA_REQUEST_ROLE_ON_LAUNCH, false)) {
+            requestRole()
+        }
+    }
+
     private fun checkRoleStatus() {
         val roleManager = getSystemService(RoleManager::class.java)
         isRoleHeld = roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)
@@ -78,8 +87,12 @@ class MainActivity : ComponentActivity() {
     private fun requestRole() {
         val roleManager = getSystemService(RoleManager::class.java)
         if (!roleManager.isRoleHeld(RoleManager.ROLE_CALL_SCREENING)) {
-            val intent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
-            roleRequestLauncher.launch(intent)
+            val roleIntent = roleManager.createRequestRoleIntent(RoleManager.ROLE_CALL_SCREENING)
+            roleRequestLauncher.launch(roleIntent)
         }
+    }
+
+    companion object {
+        const val EXTRA_REQUEST_ROLE_ON_LAUNCH = "request_role_on_launch"
     }
 }

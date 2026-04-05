@@ -34,7 +34,6 @@ fun HomeScreen(
     contactCount: Int,
     blockedCount: Int,
     isServiceEnabled: Boolean,
-    /** Non-zero when protection is currently suspended; contains the Unix ms expiry. */
     suspendUntil: Long,
     onToggleService: () -> Unit,
     onNavigateToContacts: () -> Unit,
@@ -50,24 +49,18 @@ fun HomeScreen(
         label = "statusColor"
     )
 
-    // Detect dual-SIM without SimUtils — mirrors ProtectionTab logic.
     val isDualSim = remember {
         try {
             val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
             (sm.activeSubscriptionInfoList?.size ?: 1) > 1
-        } catch (e: Exception) {
-            false
-        }
+        } catch (e: Exception) { false }
     }
     val protectedSim by remember { mutableStateOf(prefs.protectedSim) }
 
-    // Landscape detection for responsive layout.
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         if (isLandscape) {
             LandscapeHomeLayout(
                 padding = padding,
@@ -128,9 +121,7 @@ private fun PortraitHomeLayout(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(modifier = Modifier.height(48.dp))
-
         HomeHeader(onNavigateToSettings = onNavigateToSettings)
-
         Spacer(modifier = Modifier.height(40.dp))
 
         HomeToggleCircle(
@@ -141,22 +132,18 @@ private fun PortraitHomeLayout(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // SIM protection badge — only shown on dual-SIM devices while active.
         if (isDualSim && isServiceEnabled) {
             SimProtectionBadge(protectedSim = protectedSim)
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        // Suspended banner — shown when protection is suspended from Settings.
         if (suspendUntil > 0L) {
             SuspendedBanner(suspendUntil = suspendUntil)
             Spacer(modifier = Modifier.height(8.dp))
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
+        Spacer(modifier = Modifier.height(12.dp))
         StatsCard(contactCount = contactCount, blockedCount = blockedCount)
-
         Spacer(modifier = Modifier.height(20.dp))
 
         HomeButtons(
@@ -165,9 +152,7 @@ private fun PortraitHomeLayout(
         )
 
         Spacer(modifier = Modifier.height(8.dp))
-
         HomeDisclaimer()
-
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -196,12 +181,8 @@ private fun LandscapeHomeLayout(
             .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // Left column: toggle + SIM badge + suspend banner
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -222,12 +203,8 @@ private fun LandscapeHomeLayout(
             }
         }
 
-        // Right column: stats + buttons + disclaimer
         Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight()
-                .verticalScroll(rememberScrollState()),
+            modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -319,17 +296,12 @@ private fun HomeToggleCircle(
     }
 }
 
-/**
- * Banner shown when protection has been suspended from Settings.
- * Gives the user immediate visual feedback on the Home screen.
- */
 @Composable
 private fun SuspendedBanner(suspendUntil: Long) {
     val fmt = remember { SimpleDateFormat("dd/MM HH:mm", Locale.getDefault()) }
     val untilLabel = remember(suspendUntil) {
         if (suspendUntil == Long.MAX_VALUE) "∞" else fmt.format(Date(suspendUntil))
     }
-
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
@@ -363,9 +335,7 @@ private fun StatsCard(contactCount: Int, blockedCount: Int) {
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(24.dp),
+            modifier = Modifier.fillMaxWidth().padding(24.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             StatItem(
@@ -403,12 +373,8 @@ private fun HomeButtons(
         ) {
             Icon(Icons.Rounded.Contacts, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                stringResource(R.string.home_btn_whitelist),
-                style = MaterialTheme.typography.titleMedium
-            )
+            Text(stringResource(R.string.home_btn_whitelist), style = MaterialTheme.typography.titleMedium)
         }
-
         OutlinedButton(
             onClick = onNavigateToCallLog,
             modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
@@ -416,10 +382,7 @@ private fun HomeButtons(
         ) {
             Icon(Icons.Rounded.History, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                stringResource(R.string.home_btn_call_log),
-                style = MaterialTheme.typography.titleMedium
-            )
+            Text(stringResource(R.string.home_btn_call_log), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
@@ -433,10 +396,7 @@ private fun HomeDisclaimer() {
             containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
         )
     ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Rounded.Info, null, tint = Amber500, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(10.dp))
             Text(
@@ -465,16 +425,11 @@ private fun SimProtectionBadge(protectedSim: String) {
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(
-                Icons.Rounded.SimCard,
-                contentDescription = null,
+                Icons.Rounded.SimCard, contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(16.dp)
             )
-            Text(
-                label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
@@ -488,15 +443,7 @@ private fun StatItem(
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            text = value,
-            style = MaterialTheme.typography.titleLarge,
-            color = MaterialTheme.colorScheme.onSurface
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Text(text = value, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

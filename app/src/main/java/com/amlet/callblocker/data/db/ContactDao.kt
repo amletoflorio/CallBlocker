@@ -4,12 +4,11 @@ import androidx.room.*
 import kotlinx.coroutines.flow.Flow
 
 /**
- * DAO = Data Access Object.
- * Room genera l'implementazione a compile-time dalle annotazioni.
+ * DAO (Data Access Object) for the whitelist contacts table.
+ * Room generates the implementation at compile-time from these annotations.
  *
- * Flow<T> = stream reattivo: ogni volta che il DB cambia,
- * la UI riceve automaticamente i nuovi dati senza polling.
- * È analogo a un Observable/Subject in RxJS o a un generator in Python.
+ * Flow<T> is a reactive stream: whenever the database changes the UI
+ * recomposesa automatically without any polling.
  */
 @Dao
 interface ContactDao {
@@ -21,8 +20,8 @@ interface ContactDao {
     fun getContactCount(): Flow<Int>
 
     /**
-     * Cerca un numero nella whitelist.
-     * `suspend` = funzione asincrona (deve essere chiamata da una coroutine)
+     * Looks up a number in the whitelist.
+     * suspend = must be called from a coroutine.
      */
     @Query("SELECT * FROM allowed_contacts WHERE phoneNumber = :number LIMIT 1")
     suspend fun findByNumber(number: String): ContactEntity?
@@ -30,7 +29,7 @@ interface ContactDao {
     @Query("SELECT * FROM allowed_contacts WHERE id = :id")
     suspend fun findById(id: Int): ContactEntity?
 
-    /** OnConflict.REPLACE aggiorna il record se esiste già */
+    /** OnConflict.REPLACE updates the record if it already exists. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(contact: ContactEntity)
 
@@ -40,11 +39,11 @@ interface ContactDao {
     @Delete
     suspend fun delete(contact: ContactEntity)
 
-    /** Usato dal BackupManager prima di un import */
+    /** Deletes all contacts — used by BackupManager before an import. */
     @Query("DELETE FROM allowed_contacts")
     suspend fun deleteAll()
 
-    /** Bulk insert per il ripristino da backup */
+    /** Bulk insert used when restoring from a backup. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(contacts: List<ContactEntity>)
 }

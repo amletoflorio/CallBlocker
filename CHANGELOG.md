@@ -4,7 +4,27 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.5.0] - Latest
+## [v1.6.0] - Latest
+
+### New Features
+- **Advanced retry rule** — new option in Settings → Protection: if a blocked number calls X times (2–10, configurable) within Y minutes (5 / 10 / 30 / 60), the call is allowed through and the number is added to a temporary whitelist; a high-priority notification informs the user
+- **Temporary whitelist** — contacts added automatically by the retry rule have an `expiresAt` timestamp; they are shown with a badge in the whitelist UI and removed automatically once expired
+- **Boot receiver** — new option in Settings → Protection: "Reactivate on boot" re-enables call protection and clears any active suspension automatically after the device restarts (requires enabling autostart in MIUI / OEM battery settings)
+- **Ko-fi donation button** — added in Settings → Info to support the project
+
+### Bug Fixes
+- Fixed: outgoing calls are no longer logged or blocked — `CallBlockerService` now checks `DIRECTION_OUTGOING` (API 29+) and exits early before any logging or blocking logic
+- Fixed: Room database migration crash caused by `DEFAULT` values written into the SQLite catalogue by `ALTER TABLE ADD COLUMN`; migration 6→7 now recreates the `blocked_calls` table with the exact schema Room expects
+
+### Improvements
+- SIM slot is now shown correctly for each individual blocked attempt in the log
+
+### Configuration
+- Bumped `versionCode` to 6 and `versionName` to `1.6.0`
+
+---
+
+## [v1.5.0]
 
 ### New Features
 - **Rich blocked call log** — each number in the log is now tappable and opens a detail screen with full information

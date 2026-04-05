@@ -18,6 +18,18 @@ object ChangelogData {
     // Version history — add new entries at the TOP of the list.
     val entries = listOf(
         ChangelogEntry(
+            version = "1.6.0",
+            date = "2026-04-04",
+            changes = listOf(
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_6_0_1),
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_6_0_2),
+                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_6_0_3),
+                ChangeItem(ChangeType.FIX,     com.amlet.callblocker.R.string.changelog_1_6_0_4),
+                ChangeItem(ChangeType.FIX,     com.amlet.callblocker.R.string.changelog_1_6_0_5),
+                ChangeItem(ChangeType.IMPROVE, com.amlet.callblocker.R.string.changelog_1_6_0_6),
+            )
+        ),
+        ChangelogEntry(
             version = "1.5.0",
             date = "2026-04-03",
             changes = listOf(
@@ -33,7 +45,7 @@ object ChangelogData {
         ),
         ChangelogEntry(
             version = "1.4.0",
-            date = "2026-04-03",
+            date = "2026-04-02",
             changes = listOf(
                 ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_4_0_1),
                 ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_4_0_2),
@@ -77,7 +89,7 @@ object ChangelogData {
             version = "1.0.0",
             date = "2026-03-30",
             changes = listOf(
-                ChangeItem(ChangeType.NEW,     com.amlet.callblocker.R.string.changelog_1_0_0_1),
+                ChangeItem(ChangeType.NEW, com.amlet.callblocker.R.string.changelog_1_0_0_1),
             )
         ),
     )

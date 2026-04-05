@@ -5,10 +5,10 @@ import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
 /**
- * Rappresenta un contatto nella whitelist locale.
+ * Represents a contact in the local whitelist.
  *
- * @Serializable → permette la serializzazione JSON per il backup
- * @Entity       → mappa questa data class a una tabella SQLite
+ * @Serializable → enables JSON serialisation for backup/restore
+ * @Entity       → maps this data class to a SQLite table via Room
  */
 @Serializable
 @Entity(tableName = "allowed_contacts")
@@ -16,14 +16,33 @@ data class ContactEntity(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
 
-    /** Numero normalizzato, es. "391234567890" (senza +, spazi, trattini) */
+    /** Normalised phone number, e.g. "391234567890" (no +, spaces, or dashes). */
     val phoneNumber: String,
 
     val name: String,
 
-    /** Note opzionali, es. "Corriere DHL", "Dentista" */
+    /** Optional notes, e.g. "DHL courier", "Dentist". */
     val notes: String = "",
 
-    /** Timestamp Unix in millisecondi */
-    val addedAt: Long = System.currentTimeMillis()
-)
+    /** Unix timestamp in milliseconds when this entry was added. */
+    val addedAt: Long = System.currentTimeMillis(),
+
+    /**
+     * If non-null, this is a temporary entry that expires at the given timestamp (ms).
+     * Once expired the number will be blocked again.
+     * Shown with a visual badge in the whitelist UI.
+     */
+    val expiresAt: Long? = null
+) {
+    /** True if this is a temporary entry that has not yet expired. */
+    val isTemporary: Boolean
+        get() = expiresAt != null
+
+    /** True if this temporary entry has already expired and should be removed. */
+    val isExpired: Boolean
+        get() = expiresAt != null && expiresAt < System.currentTimeMillis()
+
+    /** Milliseconds remaining until expiry; 0 if already expired or permanent. */
+    val remainingMs: Long
+        get() = if (expiresAt == null) 0L else maxOf(0L, expiresAt - System.currentTimeMillis())
+}

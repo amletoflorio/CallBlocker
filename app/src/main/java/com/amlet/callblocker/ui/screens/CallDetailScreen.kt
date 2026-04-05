@@ -166,17 +166,6 @@ fun CallDetailScreen(
                             )
                         )
 
-                        // Show distinct SIM slot(s) seen across all attempts.
-                        val simSlots = remember(calls) {
-                            calls.mapNotNull { it.simSlot }.distinct()
-                        }
-                        if (simSlots.isNotEmpty()) {
-                            DetailRow(
-                                icon = Icons.Rounded.SimCard,
-                                label = stringResource(R.string.call_detail_sim),
-                                value = simSlots.joinToString(", ")
-                            )
-                        }
 
                         // First / last attempt timestamps.
                         if (calls.isNotEmpty()) {

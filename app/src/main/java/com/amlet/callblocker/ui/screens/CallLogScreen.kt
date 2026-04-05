@@ -28,9 +28,7 @@ import java.util.*
 private data class BlockedNumberSummary(
     val phoneNumber: String,
     val latestAttempt: Long,
-    val totalAttempts: Int,
-    /** SIM slot of the most recent attempt, if available. */
-    val latestSimSlot: String?
+    val totalAttempts: Int
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,8 +50,7 @@ fun CallLogScreen(
                 BlockedNumberSummary(
                     phoneNumber = number,
                     latestAttempt = sorted.first().blockedAt,
-                    totalAttempts = calls.size,
-                    latestSimSlot = sorted.first().simSlot
+                    totalAttempts = calls.size
                 )
             }
             .sortedByDescending { it.latestAttempt }
@@ -226,20 +223,7 @@ private fun BlockedNumberCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    // SIM badge
-                    if (summary.latestSimSlot != null) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                        ) {
-                            Text(
-                                text = summary.latestSimSlot,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
+
                 }
             }
 

@@ -41,10 +41,8 @@ object NotificationHelper {
     fun notifyBackupResult(context: Context, success: Boolean, message: String) {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notification = NotificationCompat.Builder(context, CHANNEL_BACKUP)
-            .setSmallIcon(
-                if (success) android.R.drawable.stat_sys_upload_done
-                else android.R.drawable.stat_notify_error
-            )
+            .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(if (success) R.string.notif_backup_success_title else R.string.notif_backup_error_title))
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -56,10 +54,8 @@ object NotificationHelper {
     fun notifyRestoreResult(context: Context, success: Boolean, message: String) {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notification = NotificationCompat.Builder(context, CHANNEL_BACKUP)
-            .setSmallIcon(
-                if (success) android.R.drawable.stat_sys_download_done
-                else android.R.drawable.stat_notify_error
-            )
+            .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(if (success) R.string.notif_restore_success_title else R.string.notif_restore_error_title))
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
@@ -73,7 +69,8 @@ object NotificationHelper {
         val nm = context.getSystemService(NotificationManager::class.java)
         val message = context.getString(R.string.notif_auto_backup_success_text, contactCount)
         val notification = NotificationCompat.Builder(context, CHANNEL_AUTO_BACKUP)
-            .setSmallIcon(android.R.drawable.stat_sys_upload_done)
+            .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(R.string.notif_auto_backup_success_title))
             .setContentText(message)
             .setAutoCancel(true)
@@ -85,7 +82,8 @@ object NotificationHelper {
     fun notifyAutoBackupError(context: Context) {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notification = NotificationCompat.Builder(context, CHANNEL_AUTO_BACKUP)
-            .setSmallIcon(android.R.drawable.stat_notify_error)
+            .setSmallIcon(R.drawable.ic_notification)
+                .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(R.string.notif_auto_backup_error_title))
             .setContentText(context.getString(R.string.notif_auto_backup_error_text))
             .setAutoCancel(true)

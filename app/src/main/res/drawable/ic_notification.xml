@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!--
+        Notification small icon — monochrome shield silhouette.
+        Android uses this as an alpha mask: the shape must be fully opaque (#FF000000)
+        and the background transparent. The system then tints it white in the status bar
+        and applies the notification accent color in the expanded view.
+        Do NOT use white (#FFFFFFFF) here — that defeats the alpha-mask behaviour.
+    -->
+    <path
+        android:fillColor="#FF000000"
+        android:pathData="M12,2 L4,5.5 L4,10.5 C4,15.47 7.4,20.13 12,21.43 C16.6,20.13 20,15.47 20,10.5 L20,5.5 Z" />
+</vector>
