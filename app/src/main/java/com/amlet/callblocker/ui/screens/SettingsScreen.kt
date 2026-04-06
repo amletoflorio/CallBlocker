@@ -24,7 +24,10 @@ import androidx.compose.ui.unit.dp
 import com.amlet.callblocker.BuildConfig
 import com.amlet.callblocker.CallBlockerApp
 import com.amlet.callblocker.R
+import com.amlet.callblocker.data.db.AppDatabase
+import com.amlet.callblocker.data.db.ScheduleRuleEntity
 import com.amlet.callblocker.data.prefs.AppPreferences
+import com.amlet.callblocker.service.ScheduleManager
 import com.amlet.callblocker.ui.components.ChangelogDialog
 import com.amlet.callblocker.util.LocaleHelper
 import com.amlet.callblocker.util.UpdateChecker
@@ -33,7 +36,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-private enum class SettingsTab { CALLS, BOOT, BACKUP, UPDATES, INFO }
+private enum class SettingsTab { CALLS, SCHEDULE, BOOT, BACKUP, UPDATES, INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,20 +48,15 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val prefs = remember { AppPreferences(context) }
-
     var selectedTab by remember {
-        mutableStateOf(
-            SettingsTab.entries.getOrElse(prefs.lastSettingsTab) { SettingsTab.CALLS }
-        )
+        mutableStateOf(SettingsTab.entries.getOrElse(prefs.lastSettingsTab) { SettingsTab.CALLS })
     }
     var showChangelog by remember { mutableStateOf(false) }
-
-    if (showChangelog) {
-        ChangelogDialog(onDismiss = { showChangelog = false })
-    }
+    if (showChangelog) ChangelogDialog(onDismiss = { showChangelog = false })
 
     val tabLabels = listOf(
         stringResource(R.string.settings_tab_calls),
+        stringResource(R.string.settings_tab_schedule),
         stringResource(R.string.settings_tab_boot),
         stringResource(R.string.settings_tab_backup),
         stringResource(R.string.settings_tab_updates),
@@ -66,6 +64,7 @@ fun SettingsScreen(
     )
     val tabIcons = listOf(
         Icons.Rounded.Call,
+        Icons.Rounded.Schedule,
         Icons.Rounded.RestartAlt,
         Icons.Rounded.Backup,
         Icons.Rounded.SystemUpdate,
@@ -83,11 +82,8 @@ fun SettingsScreen(
                 },
                 actions = {
                     IconButton(onClick = { showChangelog = true }) {
-                        Icon(
-                            Icons.Rounded.NewReleases,
-                            contentDescription = stringResource(R.string.changelog_title),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
+                        Icon(Icons.Rounded.NewReleases, contentDescription = stringResource(R.string.changelog_title),
+                            tint = MaterialTheme.colorScheme.primary)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -96,60 +92,50 @@ fun SettingsScreen(
         containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-            ScrollableTabRow(
-                selectedTabIndex = selectedTab.ordinal,
+            ScrollableTabRow(selectedTabIndex = selectedTab.ordinal,
                 containerColor = MaterialTheme.colorScheme.background,
                 contentColor = MaterialTheme.colorScheme.primary,
-                divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
-                edgePadding = 0.dp
-            ) {
+                edgePadding = 0.dp) {
                 SettingsTab.entries.forEachIndexed { index, tab ->
-                    Tab(
-                        selected = selectedTab == tab,
-                        onClick = {
-                            selectedTab = tab
-                            prefs.lastSettingsTab = tab.ordinal
-                        },
-                        icon = { Icon(tabIcons[index], tabLabels[index], modifier = Modifier.size(18.dp)) },
-                        text = { Text(tabLabels[index], style = MaterialTheme.typography.labelMedium) }
-                    )
+                    Tab(selected = selectedTab == tab, onClick = {
+                        selectedTab = tab; prefs.lastSettingsTab = index
+                    }, icon = { Icon(tabIcons[index], null, modifier = Modifier.size(18.dp)) },
+                        text = { Text(tabLabels[index], style = MaterialTheme.typography.labelSmall) })
                 }
             }
-
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             when (selectedTab) {
-                SettingsTab.CALLS   -> CallsTab(context, onApplyLogRetention)
-                SettingsTab.BOOT    -> BootTab(context)
-                SettingsTab.BACKUP  -> BackupTab(context, onExportBackup, onImportBackup)
-                SettingsTab.UPDATES -> UpdatesTab(context)
-                SettingsTab.INFO    -> InfoTab(
-                    context = context,
-                    onShowChangelog = { showChangelog = true },
-                    onLanguageChanged = {
-                        prefs.lastSettingsTab = SettingsTab.INFO.ordinal
-                        (context as? android.app.Activity)?.recreate()
-                    }
-                )
+                SettingsTab.CALLS    -> CallsTab(context, onApplyLogRetention)
+                SettingsTab.SCHEDULE -> ScheduleTab(context)
+                SettingsTab.BOOT     -> BootTab(context)
+                SettingsTab.BACKUP   -> BackupTab(context, onExportBackup, onImportBackup)
+                SettingsTab.UPDATES  -> UpdatesTab(context)
+                SettingsTab.INFO     -> InfoTab(context, onShowChangelog = { showChangelog = true }, onLanguageChanged = {})
             }
         }
     }
 }
 
-// ── Tab: Calls (was "Protection") ─────────────────────────────────────────────
+// ── Tab: Calls ────────────────────────────────────────────────────────────────
 
 @Composable
 private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
     val prefs = remember { AppPreferences(context) }
-    var notifyOnBlock     by remember { mutableStateOf(prefs.notifyOnBlock) }
-    var suspendUntil      by remember { mutableStateOf(prefs.suspendUntil) }
+    var notifyOnBlock    by remember { mutableStateOf(prefs.notifyOnBlock) }
+    var suspendUntil     by remember { mutableStateOf(prefs.suspendUntil) }
     var showSuspendDialog by remember { mutableStateOf(false) }
-    var protectedSim      by remember { mutableStateOf(prefs.protectedSim) }
-    var retentionDays     by remember { mutableStateOf(prefs.logRetentionDays) }
-
-
-    // Advanced retry rule
-    var retryRuleEnabled  by remember { mutableStateOf(prefs.retryRuleEnabled) }
-    var retryAttempts     by remember { mutableStateOf(prefs.retryRuleAttempts) }
-    var retryWindow       by remember { mutableStateOf(prefs.retryRuleWindowMinutes) }
+    var protectedSim     by remember { mutableStateOf(prefs.protectedSim) }
+    var retentionDays    by remember { mutableStateOf(prefs.logRetentionDays) }
+    var retryRuleEnabled by remember { mutableStateOf(prefs.retryRuleEnabled) }
+    var retryAttempts    by remember { mutableStateOf(prefs.retryRuleAttempts) }
+    var retryWindow      by remember { mutableStateOf(prefs.retryRuleWindowMinutes) }
+    // STIR/SHAKEN
+    var stirEnabled      by remember { mutableStateOf(prefs.blockOnVerificationFailed) }
+    var stirSimTarget    by remember { mutableStateOf(prefs.stirShakenSimTarget) }
+    // Dialed whitelist
+    var dialedEnabled    by remember { mutableStateOf(prefs.dialedNumberWhitelistEnabled) }
+    var dialedHours      by remember { mutableStateOf(prefs.dialedWindowHours) }
+    var dialedSimTarget  by remember { mutableStateOf(prefs.dialedWhitelistSimTarget) }
 
     val simCount = remember {
         try {
@@ -157,67 +143,46 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
             sm.activeSubscriptionInfoList?.size ?: 1
         } catch (e: Exception) { 1 }
     }
-    val scope = rememberCoroutineScope()
 
     if (showSuspendDialog) {
-        SuspendDialog(
-            onDismiss = { showSuspendDialog = false },
-            onConfirm = { durationMs ->
-                val until = System.currentTimeMillis() + durationMs
-                prefs.suspendUntil = until
-                suspendUntil = until
-                showSuspendDialog = false
-            }
-        )
+        SuspendDialog(onDismiss = { showSuspendDialog = false }, onConfirm = { durationMs ->
+            val until = System.currentTimeMillis() + durationMs
+            prefs.suspendUntil = until; suspendUntil = until; showSuspendDialog = false
+        })
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(8.dp))
 
         // ── Suspend protection ────────────────────────────────────────────────
         val isSuspended = suspendUntil > System.currentTimeMillis()
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isSuspended)
-                    MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f)
-                else
-                    MaterialTheme.colorScheme.surface
-            )
-        ) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = if (isSuspended)
+                MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f) else MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Rounded.PauseCircle, null,
+                    Icon(Icons.Rounded.PauseCircle, null,
                         tint = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(16.dp))
+                        modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(16.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.settings_suspend_title), style = MaterialTheme.typography.titleMedium,
                             color = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
-                        Text(
-                            if (isSuspended) stringResource(R.string.settings_suspend_active_until, formatTime(suspendUntil))
-                            else stringResource(R.string.settings_suspend_subtitle),
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Text(if (isSuspended) stringResource(R.string.settings_suspend_active_until, formatTime(suspendUntil))
+                             else stringResource(R.string.settings_suspend_subtitle),
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (isSuspended) {
-                        Button(
-                            onClick = { prefs.cancelSuspend(); suspendUntil = 0L },
+                        Button(onClick = { prefs.cancelSuspend(); suspendUntil = 0L },
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
+                            shape = RoundedCornerShape(12.dp)) {
                             Icon(Icons.Rounded.PlayArrow, null, modifier = Modifier.size(18.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(Modifier.width(6.dp))
                             Text(stringResource(R.string.settings_suspend_resume))
                         }
                     } else {
@@ -239,7 +204,7 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_notify_title), style = MaterialTheme.typography.titleMedium)
                     Text(stringResource(R.string.settings_notify_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -254,23 +219,20 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoDelete, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column {
                         Text(stringResource(R.string.settings_log_retention_title), style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.settings_log_retention_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                val retentionOptions = listOf(
-                    0 to stringResource(R.string.settings_log_retention_never),
-                    7 to stringResource(R.string.settings_log_retention_7d),
-                    30 to stringResource(R.string.settings_log_retention_30d),
-                    90 to stringResource(R.string.settings_log_retention_90d)
-                )
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    retentionOptions.forEach { (days, label) ->
-                        FilterChip(selected = retentionDays == days, onClick = { retentionDays = days; prefs.logRetentionDays = days; onApplyLogRetention(days) },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
-                    }
+                    listOf(0 to stringResource(R.string.settings_log_retention_never), 7 to stringResource(R.string.settings_log_retention_7d),
+                        30 to stringResource(R.string.settings_log_retention_30d), 90 to stringResource(R.string.settings_log_retention_90d))
+                        .forEach { (days, label) ->
+                            FilterChip(selected = retentionDays == days,
+                                onClick = { retentionDays = days; prefs.logRetentionDays = days; onApplyLogRetention(days) },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+                        }
                 }
             }
         }
@@ -282,31 +244,81 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.SimCard, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(Modifier.width(12.dp))
                         Column {
                             Text(stringResource(R.string.settings_sim_title), style = MaterialTheme.typography.titleMedium)
                             Text(stringResource(R.string.settings_sim_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    val simOptions = listOf(AppPreferences.SIM_1 to stringResource(R.string.settings_sim_1), AppPreferences.SIM_2 to stringResource(R.string.settings_sim_2), AppPreferences.SIM_BOTH to stringResource(R.string.settings_sim_both))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        simOptions.forEach { (value, label) ->
-                            FilterChip(selected = protectedSim == value, onClick = { protectedSim = value; prefs.protectedSim = value },
+                    SimSelector(selected = protectedSim, onSelect = { protectedSim = it; prefs.protectedSim = it })
+                    TextButton(onClick = { prefs.simMapAutoBuilt = false; prefs.getSimAccountMap().keys.forEach { prefs.removeSimAccountMapping(it) } },
+                        modifier = Modifier.align(Alignment.End)) {
+                        Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.settings_sim_rescan), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+            }
+        }
+
+        // ── STIR/SHAKEN ───────────────────────────────────────────────────────
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.VerifiedUser, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_stir_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_stir_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = stirEnabled, onCheckedChange = { prefs.blockOnVerificationFailed = it; stirEnabled = it })
+                }
+                if (stirEnabled) {
+                    if (simCount > 1) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(stringResource(R.string.settings_feature_sim_label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SimSelector(selected = stirSimTarget, onSelect = { stirSimTarget = it; prefs.stirShakenSimTarget = it })
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)) {
+                        Row(modifier = Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(16.dp))
+                            Text(stringResource(R.string.settings_stir_disclaimer), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Dialed-number whitelist ───────────────────────────────────────────
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.PhoneCallback, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_dialed_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_dialed_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = dialedEnabled, onCheckedChange = { prefs.dialedNumberWhitelistEnabled = it; dialedEnabled = it })
+                }
+                if (dialedEnabled) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text(stringResource(R.string.settings_dialed_window_label), style = MaterialTheme.typography.bodyMedium)
+                    Spacer(Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        listOf(1 to "1h", 6 to "6h", 24 to "24h", 48 to "48h").forEach { (h, label) ->
+                            FilterChip(selected = dialedHours == h,
+                                onClick = { dialedHours = h; prefs.dialedWindowHours = h },
                                 label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
                         }
                     }
-                    // Rescan button — resets the auto-build flag so the service rescans on next call
-                    TextButton(
-                        onClick = {
-                            prefs.simMapAutoBuilt = false
-                            // Clear existing auto-built entries so they get rebuilt fresh
-                            prefs.getSimAccountMap().keys.forEach { prefs.removeSimAccountMapping(it) }
-                        },
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(stringResource(R.string.settings_sim_rescan), style = MaterialTheme.typography.labelSmall)
+                    if (simCount > 1) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        Text(stringResource(R.string.settings_feature_sim_label), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        SimSelector(selected = dialedSimTarget, onSelect = { dialedSimTarget = it; prefs.dialedWhitelistSimTarget = it })
                     }
                 }
             }
@@ -318,47 +330,33 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Autorenew, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         Text(stringResource(R.string.settings_retry_rule_title), style = MaterialTheme.typography.titleMedium)
                         Text(stringResource(R.string.settings_retry_rule_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(checked = retryRuleEnabled, onCheckedChange = { prefs.retryRuleEnabled = it; retryRuleEnabled = it })
                 }
-
                 if (retryRuleEnabled) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                    // Attempts slider
                     Column {
-                        Text(stringResource(R.string.settings_retry_rule_attempts_label, retryAttempts),
-                            style = MaterialTheme.typography.bodyMedium)
-                        Slider(
-                            value = retryAttempts.toFloat(),
+                        Text(stringResource(R.string.settings_retry_rule_attempts_label, retryAttempts), style = MaterialTheme.typography.bodyMedium)
+                        Slider(value = retryAttempts.toFloat(),
                             onValueChange = { retryAttempts = it.toInt(); prefs.retryRuleAttempts = it.toInt() },
-                            valueRange = 2f..10f, steps = 7,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                            valueRange = 2f..10f, steps = 7, modifier = Modifier.fillMaxWidth())
                     }
-
-                    // Window chips
                     Column {
-                        Text(stringResource(R.string.settings_retry_rule_window_label),
-                            style = MaterialTheme.typography.bodyMedium)
-                        Spacer(modifier = Modifier.height(6.dp))
-                        val windowOptions = listOf(5 to "5 min", 10 to "10 min", 30 to "30 min", 60 to "60 min")
+                        Text(stringResource(R.string.settings_retry_rule_window_label), style = MaterialTheme.typography.bodyMedium)
+                        Spacer(Modifier.height(6.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            windowOptions.forEach { (min, label) ->
+                            listOf(5 to "5 min", 10 to "10 min", 30 to "30 min", 60 to "60 min").forEach { (min, label) ->
                                 FilterChip(selected = retryWindow == min,
                                     onClick = { retryWindow = min; prefs.retryRuleWindowMinutes = min },
-                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) },
-                                    modifier = Modifier.weight(1f))
+                                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
                             }
                         }
                     }
-
-                    Surface(shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)) {
+                    Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)) {
                         Row(modifier = Modifier.padding(10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
                             Text(stringResource(R.string.settings_retry_rule_info, retryAttempts, retryWindow, retryWindow),
@@ -369,8 +367,266 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
     }
+}
+
+// ── Reusable SIM selector ─────────────────────────────────────────────────────
+
+@Composable
+private fun SimSelector(selected: String, onSelect: (String) -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        listOf(AppPreferences.SIM_1 to "SIM 1", AppPreferences.SIM_2 to "SIM 2", AppPreferences.SIM_BOTH to "Entrambe")
+            .forEach { (value, label) ->
+                FilterChip(selected = selected == value, onClick = { onSelect(value) },
+                    label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+            }
+    }
+}
+
+// ── Tab: Schedule ─────────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ScheduleTab(context: Context) {
+    val prefs = remember { AppPreferences(context) }
+    val db    = remember { AppDatabase.getInstance(context) }
+    val scope = rememberCoroutineScope()
+
+    var scheduleEnabled by remember { mutableStateOf(prefs.scheduleEnabled) }
+    val rules by db.scheduleRuleDao().getAll().collectAsState(initial = emptyList())
+
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingRule   by remember { mutableStateOf<ScheduleRuleEntity?>(null) }
+
+    if (showAddDialog || editingRule != null) {
+        ScheduleRuleDialog(
+            existing = editingRule,
+            onSave = { rule ->
+                scope.launch {
+                    db.scheduleRuleDao().upsert(rule)
+                    ScheduleManager.reschedule(context)
+                }
+                showAddDialog = false; editingRule = null
+            },
+            onDismiss = { showAddDialog = false; editingRule = null }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(8.dp))
+
+        // Master toggle
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Schedule, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_schedule_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_schedule_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = scheduleEnabled, onCheckedChange = {
+                    scheduleEnabled = it; prefs.scheduleEnabled = it
+                    scope.launch { ScheduleManager.reschedule(context) }
+                })
+            }
+        }
+
+        if (scheduleEnabled) {
+            // Info card
+            Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+                modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                    Text(stringResource(R.string.settings_schedule_info), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            // Rules list
+            if (rules.isEmpty()) {
+                Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(24.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Icon(Icons.Rounded.EventNote, null, modifier = Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.settings_schedule_empty), style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+                    }
+                }
+            } else {
+                rules.forEach { rule ->
+                    ScheduleRuleCard(
+                        rule = rule,
+                        onToggle = { scope.launch { db.scheduleRuleDao().upsert(rule.copy(enabled = !rule.enabled)); ScheduleManager.reschedule(context) } },
+                        onEdit   = { editingRule = rule },
+                        onDelete = { scope.launch { db.scheduleRuleDao().delete(rule); ScheduleManager.reschedule(context) } }
+                    )
+                }
+            }
+
+            // Add button
+            Button(onClick = { showAddDialog = true }, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
+                Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.settings_schedule_add))
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun ScheduleRuleCard(
+    rule: ScheduleRuleEntity,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val dayLabels = listOf("L","M","M","G","V","S","D")
+    val activeDays = rule.dayList()
+    val modeLabel = if (rule.mode == ScheduleRuleEntity.MODE_ACTIVATE)
+        stringResource(R.string.settings_schedule_mode_activate)
+    else stringResource(R.string.settings_schedule_mode_deactivate)
+
+    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = if (rule.enabled) MaterialTheme.colorScheme.surface
+                                          else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (rule.mode == ScheduleRuleEntity.MODE_ACTIVATE) Icons.Rounded.LockClock else Icons.Rounded.LockOpen,
+                    null, tint = if (rule.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(modeLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text("${rule.startTime} → ${rule.endTime}", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = rule.enabled, onCheckedChange = { onToggle() })
+            }
+            // Day pills
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                dayLabels.forEachIndexed { i, label ->
+                    val active = (i + 1) in activeDays
+                    Surface(shape = RoundedCornerShape(6.dp),
+                        color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
+                        Text(label, style = MaterialTheme.typography.labelSmall,
+                            color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                    }
+                }
+                if (rule.simTarget != AppPreferences.SIM_BOTH) {
+                    Spacer(Modifier.width(4.dp))
+                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
+                        Text(if (rule.simTarget == AppPreferences.SIM_1) "SIM 1" else "SIM 2",
+                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onEdit, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Rounded.Edit, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+                    Icon(Icons.Rounded.DeleteOutline, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScheduleRuleDialog(
+    existing: ScheduleRuleEntity?,
+    onSave: (ScheduleRuleEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val simCount = remember {
+        try {
+            val sm = context.getSystemService(Context.TELEPHONY_SUBSCRIPTION_SERVICE) as SubscriptionManager
+            sm.activeSubscriptionInfoList?.size ?: 1
+        } catch (e: Exception) { 1 }
+    }
+
+    var mode      by remember { mutableStateOf(existing?.mode ?: ScheduleRuleEntity.MODE_DEACTIVATE) }
+    var startTime by remember { mutableStateOf(existing?.startTime ?: "22:00") }
+    var endTime   by remember { mutableStateOf(existing?.endTime ?: "07:00") }
+    var selDays   by remember { mutableStateOf(existing?.dayList()?.toSet() ?: setOf(1,2,3,4,5)) }
+    var simTarget by remember { mutableStateOf(existing?.simTarget ?: AppPreferences.SIM_BOTH) }
+
+    val dayLabels = listOf("L","M","M","G","V","S","D")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Schedule, null) },
+        title = { Text(if (existing == null) stringResource(R.string.settings_schedule_add) else stringResource(R.string.settings_schedule_edit)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // Mode
+                Text(stringResource(R.string.settings_schedule_mode_label), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(ScheduleRuleEntity.MODE_DEACTIVATE to stringResource(R.string.settings_schedule_mode_deactivate),
+                           ScheduleRuleEntity.MODE_ACTIVATE   to stringResource(R.string.settings_schedule_mode_activate))
+                        .forEach { (value, label) ->
+                            FilterChip(selected = mode == value, onClick = { mode = value },
+                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+                        }
+                }
+                // Days
+                Text(stringResource(R.string.settings_schedule_days_label), style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    dayLabels.forEachIndexed { i, label ->
+                        val dayNum = i + 1
+                        FilterChip(selected = dayNum in selDays,
+                            onClick = { selDays = if (dayNum in selDays) selDays - dayNum else selDays + dayNum },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+                    }
+                }
+                // Times
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(value = startTime, onValueChange = { startTime = it },
+                        label = { Text(stringResource(R.string.settings_schedule_start)) },
+                        placeholder = { Text("HH:mm") }, singleLine = true, modifier = Modifier.weight(1f))
+                    Icon(Icons.Rounded.ArrowForward, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutlinedTextField(value = endTime, onValueChange = { endTime = it },
+                        label = { Text(stringResource(R.string.settings_schedule_end)) },
+                        placeholder = { Text("HH:mm") }, singleLine = true, modifier = Modifier.weight(1f))
+                }
+                // SIM
+                if (simCount > 1) {
+                    Text(stringResource(R.string.settings_feature_sim_label), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    SimSelector(selected = simTarget, onSelect = { simTarget = it })
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    if (selDays.isNotEmpty() && startTime.matches(Regex("\\d{2}:\\d{2}")) && endTime.matches(Regex("\\d{2}:\\d{2}"))) {
+                        onSave(ScheduleRuleEntity(
+                            id        = existing?.id ?: 0,
+                            mode      = mode,
+                            days      = selDays.sorted().joinToString(","),
+                            startTime = startTime,
+                            endTime   = endTime,
+                            enabled   = existing?.enabled ?: true,
+                            simTarget = simTarget
+                        ))
+                    }
+                },
+                enabled = selDays.isNotEmpty()
+            ) { Text(stringResource(R.string.common_save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
+    )
 }
 
 // ── Tab: Boot ─────────────────────────────────────────────────────────────────
@@ -379,43 +635,37 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
 private fun BootTab(context: Context) {
     val prefs = remember { AppPreferences(context) }
     var reactivateOnBoot by remember { mutableStateOf(prefs.reactivateOnBoot) }
-
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Spacer(modifier = Modifier.height(8.dp))
-
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.RestartAlt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_boot_title), style = MaterialTheme.typography.titleMedium)
-                    Text(stringResource(R.string.settings_boot_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.RestartAlt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_boot_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_boot_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = reactivateOnBoot, onCheckedChange = { prefs.reactivateOnBoot = it; reactivateOnBoot = it })
                 }
-                Switch(checked = reactivateOnBoot, onCheckedChange = { prefs.reactivateOnBoot = it; reactivateOnBoot = it })
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text(stringResource(R.string.settings_boot_info), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
 // ── Tab: Backup ───────────────────────────────────────────────────────────────
 
 @Composable
-private fun BackupTab(
-    context: Context,
-    onExportBackup: (Context, Uri) -> Unit,
-    onImportBackup: (Context, Uri) -> Unit
-) {
+private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, onImportBackup: (Context, Uri) -> Unit) {
     val prefs = remember { AppPreferences(context) }
     var intervalDays    by remember { mutableStateOf(prefs.autoBackupIntervalDays) }
     val lastBackupAt    by remember { mutableStateOf(prefs.lastAutoBackupAt) }
     var folderUriString by remember { mutableStateOf(prefs.autoBackupFolderUri) }
-
     val filename = stringResource(R.string.settings_backup_filename)
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { onExportBackup(context, it) } }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onImportBackup(context, it) } }
@@ -425,20 +675,17 @@ private fun BackupTab(
             prefs.autoBackupFolderUri = uri.toString(); folderUriString = uri.toString()
         }
     }
-
     val intervalOptions = listOf(0 to stringResource(R.string.settings_auto_backup_off), 1 to stringResource(R.string.settings_auto_backup_daily), 7 to stringResource(R.string.settings_auto_backup_weekly), 30 to stringResource(R.string.settings_auto_backup_monthly))
     val folderLabel = folderUriString?.let { uriStr -> runCatching { Uri.parse(uriStr).lastPathSegment?.substringAfterLast(':') ?: uriStr }.getOrNull() } ?: stringResource(R.string.settings_auto_backup_folder_default)
-
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
         SettingsCard(icon = Icons.Rounded.Upload, title = stringResource(R.string.settings_export_title), subtitle = stringResource(R.string.settings_export_subtitle), onClick = { exportLauncher.launch(filename) })
         SettingsCard(icon = Icons.Rounded.Download, title = stringResource(R.string.settings_import_title), subtitle = stringResource(R.string.settings_import_subtitle), onClick = { importLauncher.launch(arrayOf("application/json")) }, isDestructive = true)
-
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.AutoAwesome, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column { Text(stringResource(R.string.settings_auto_backup_title), style = MaterialTheme.typography.titleMedium); Text(stringResource(R.string.settings_auto_backup_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -456,7 +703,7 @@ private fun BackupTab(
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -472,32 +719,27 @@ private fun UpdatesTab(context: Context) {
     var updateError         by remember { mutableStateOf<String?>(null) }
     var updateDialogInfo    by remember { mutableStateOf<UpdateChecker.UpdateInfo?>(null) }
     val scope = rememberCoroutineScope()
-
     if (updateDialogInfo != null) {
         val info = updateDialogInfo!!
-        AlertDialog(
-            onDismissRequest = { updateDialogInfo = null },
-            icon = { Icon(Icons.Rounded.NewReleases, null) },
+        AlertDialog(onDismissRequest = { updateDialogInfo = null }, icon = { Icon(Icons.Rounded.NewReleases, null) },
             title = { Text(stringResource(R.string.update_dialog_title)) },
             text = { Text(stringResource(R.string.update_dialog_body, BuildConfig.VERSION_NAME, info.latestVersion)) },
             confirmButton = { Button(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.downloadUrl))); updateDialogInfo = null }) { Text(stringResource(R.string.update_dialog_download)) } },
-            dismissButton = { TextButton(onClick = { updateDialogInfo = null }) { Text(stringResource(R.string.update_dialog_later)) } }
-        )
+            dismissButton = { TextButton(onClick = { updateDialogInfo = null }) { Text(stringResource(R.string.update_dialog_later)) } })
     }
-
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column { Text(stringResource(R.string.settings_version_title), style = MaterialTheme.typography.titleMedium); Text(BuildConfig.VERSION_NAME, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Rounded.SystemUpdate, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.settings_check_updates_title), style = MaterialTheme.typography.bodyMedium); Text(stringResource(R.string.settings_check_updates_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                     Switch(checked = checkUpdatesEnabled, onCheckedChange = { checkUpdatesEnabled = it; prefs.checkUpdatesEnabled = it; if (!it) { notifyOnUpdate = false; prefs.notifyOnUpdate = false; updateUpToDate = false; updateError = null }; (context.applicationContext as CallBlockerApp).scheduleUpdateCheckIfNeeded() })
                 }
@@ -505,13 +747,13 @@ private fun UpdatesTab(context: Context) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Rounded.NotificationsActive, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
+                        Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) { Text(stringResource(R.string.settings_notify_update_title), style = MaterialTheme.typography.bodyMedium); Text(stringResource(R.string.settings_notify_update_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         Switch(checked = notifyOnUpdate, onCheckedChange = { notifyOnUpdate = it; prefs.notifyOnUpdate = it })
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     Button(onClick = { updateUpToDate = false; updateError = null; updateChecking = true; scope.launch { when (val result = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)) { is UpdateChecker.UpdateResult.UpdateAvailable -> updateDialogInfo = result.info; is UpdateChecker.UpdateResult.UpToDate -> updateUpToDate = true; is UpdateChecker.UpdateResult.Error -> updateError = result.message }; updateChecking = false } }, enabled = !updateChecking, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) {
-                        if (updateChecking) { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary); Spacer(modifier = Modifier.width(8.dp)) } else { Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(18.dp)); Spacer(modifier = Modifier.width(8.dp)) }
+                        if (updateChecking) { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary); Spacer(Modifier.width(8.dp)) } else { Icon(Icons.Rounded.Refresh, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
                         Text(stringResource(R.string.settings_check_updates_btn))
                     }
                     when {
@@ -521,7 +763,7 @@ private fun UpdatesTab(context: Context) {
                 }
             }
         }
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -532,21 +774,16 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
     val prefs = remember { AppPreferences(context) }
     var appLanguage    by remember { mutableStateOf(prefs.appLanguage) }
     var showLangDialog by remember { mutableStateOf(false) }
-
     if (showLangDialog) {
         LanguageDialog(current = appLanguage, onSelect = { lang -> appLanguage = lang; prefs.appLanguage = lang; LocaleHelper.applyLocale(context, lang); showLangDialog = false; onLanguageChanged() }, onDismiss = { showLangDialog = false })
     }
-
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Spacer(modifier = Modifier.height(8.dp))
-
+        Spacer(Modifier.height(8.dp))
         SettingsCard(icon = Icons.Rounded.NewReleases, title = stringResource(R.string.settings_whats_new_title), subtitle = stringResource(R.string.settings_whats_new_subtitle), onClick = onShowChangelog)
-
-        // Language picker
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface), onClick = { showLangDialog = true }) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Language, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_language_title), style = MaterialTheme.typography.titleMedium)
                     Text(when (appLanguage) { AppPreferences.LANG_EN -> stringResource(R.string.settings_language_en); AppPreferences.LANG_IT -> stringResource(R.string.settings_language_it); else -> stringResource(R.string.settings_language_system) }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -554,16 +791,11 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
                 Icon(Icons.Rounded.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-
         SettingsCard(icon = Icons.Rounded.Code, title = stringResource(R.string.settings_github_title), subtitle = stringResource(R.string.settings_github_subtitle), onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/amletoflorio/CallBlocker"))) })
-
-        // Ko-fi donation button
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)),
-            onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ko-fi.com/the_amlet"))) }) {
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)), onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://ko-fi.com/the_amlet"))) }) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Coffee, null, tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_donate_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
                     Text(stringResource(R.string.settings_donate_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f))
@@ -571,30 +803,25 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
                 Icon(Icons.Rounded.OpenInNew, null, tint = MaterialTheme.colorScheme.tertiary)
             }
         }
-
-        // How it works
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.padding(16.dp)) {
                 Icon(Icons.Rounded.Security, null, tint = MaterialTheme.colorScheme.primary)
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(Modifier.width(12.dp))
                 Column {
                     Text(stringResource(R.string.settings_how_it_works_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(Modifier.height(4.dp))
                     Text(stringResource(R.string.settings_how_it_works_body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-
-        // Credits
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Favorite, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(16.dp))
+                Spacer(Modifier.width(16.dp))
                 Column { Text(stringResource(R.string.settings_credits_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold); Text(stringResource(R.string.settings_credits_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
             }
         }
-
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -604,7 +831,7 @@ private fun InfoTab(context: Context, onShowChangelog: () -> Unit, onLanguageCha
 private fun LanguageDialog(current: String, onSelect: (String) -> Unit, onDismiss: () -> Unit) {
     val options = listOf(AppPreferences.LANG_SYSTEM to stringResource(R.string.settings_language_system), AppPreferences.LANG_EN to stringResource(R.string.settings_language_en), AppPreferences.LANG_IT to stringResource(R.string.settings_language_it))
     AlertDialog(onDismissRequest = onDismiss, icon = { Icon(Icons.Rounded.Language, null) }, title = { Text(stringResource(R.string.settings_language_title)) },
-        text = { Column { options.forEach { (value, label) -> Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = current == value, onClick = { onSelect(value) }); Spacer(modifier = Modifier.width(8.dp)); Text(label, style = MaterialTheme.typography.bodyMedium) } } } },
+        text = { Column { options.forEach { (value, label) -> Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { RadioButton(selected = current == value, onClick = { onSelect(value) }); Spacer(Modifier.width(8.dp)); Text(label, style = MaterialTheme.typography.bodyMedium) } } } },
         confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } })
 }
 
@@ -647,7 +874,7 @@ private fun SettingsCard(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, tint = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.titleMedium, color = if (isDestructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
                 Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -167,6 +167,70 @@ class AppPreferences(context: Context) {
         get() = prefs.getInt(KEY_LOG_RETENTION_DAYS, 0)
         set(value) = prefs.edit().putInt(KEY_LOG_RETENTION_DAYS, value).apply()
 
+    // ── STIR/SHAKEN ──────────────────────────────────────────────────────────
+
+    /**
+     * When true, calls with STIR/SHAKEN FAILED status are blocked regardless
+     * of whitelist/contacts. Configurable per-SIM via [stirShakenSimTarget].
+     */
+    var blockOnVerificationFailed: Boolean
+        get() = prefs.getBoolean(KEY_BLOCK_ON_VERIF_FAILED, false)
+        set(value) = prefs.edit().putBoolean(KEY_BLOCK_ON_VERIF_FAILED, value).apply()
+
+    /** SIM target for blockOnVerificationFailed: "sim1", "sim2", or "both". */
+    var stirShakenSimTarget: String
+        get() = prefs.getString(KEY_STIR_SHAKEN_SIM_TARGET, SIM_BOTH) ?: SIM_BOTH
+        set(value) = prefs.edit().putString(KEY_STIR_SHAKEN_SIM_TARGET, value).apply()
+
+    // ── Dialed-number whitelist ───────────────────────────────────────────────
+
+    /**
+     * When true, if the user called a number within the last [dialedWindowHours] hours,
+     * that number is automatically allowed even if not in contacts or whitelist.
+     */
+    var dialedNumberWhitelistEnabled: Boolean
+        get() = prefs.getBoolean(KEY_DIALED_WHITELIST_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_DIALED_WHITELIST_ENABLED, value).apply()
+
+    /** Time window in hours for dialed-number whitelist. Options: 1, 6, 24, 48. Default 6. */
+    var dialedWindowHours: Int
+        get() = prefs.getInt(KEY_DIALED_WINDOW_HOURS, 6)
+        set(value) = prefs.edit().putInt(KEY_DIALED_WINDOW_HOURS, value).apply()
+
+    /** SIM target for dialed-number whitelist: "sim1", "sim2", or "both". */
+    var dialedWhitelistSimTarget: String
+        get() = prefs.getString(KEY_DIALED_WHITELIST_SIM_TARGET, SIM_BOTH) ?: SIM_BOTH
+        set(value) = prefs.edit().putString(KEY_DIALED_WHITELIST_SIM_TARGET, value).apply()
+
+    // ── Schedule rules ───────────────────────────────────────────────────────
+
+    /** Master toggle for the scheduling feature. */
+    var scheduleEnabled: Boolean
+        get() = prefs.getBoolean(KEY_SCHEDULE_ENABLED, false)
+        set(value) = prefs.edit().putBoolean(KEY_SCHEDULE_ENABLED, value).apply()
+
+    /**
+     * Human-readable label explaining the current schedule state, shown on HomeScreen
+     * under the toggle.  E.g. "Disattivo automaticamente fino alle 18:00".
+     * Empty string = no active schedule state to show.
+     */
+    var scheduleActiveLabel: String
+        get() = prefs.getString(KEY_SCHEDULE_ACTIVE_LABEL, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SCHEDULE_ACTIVE_LABEL, value).apply()
+
+    /**
+     * When true, the user has manually overridden the current schedule for today.
+     * The schedule will resume from the next trigger.
+     */
+    var scheduleOverriddenToday: Boolean
+        get() = prefs.getBoolean(KEY_SCHEDULE_OVERRIDDEN_TODAY, false)
+        set(value) = prefs.edit().putBoolean(KEY_SCHEDULE_OVERRIDDEN_TODAY, value).apply()
+
+    /** Date (yyyyMMdd) on which [scheduleOverriddenToday] was set — for auto-reset. */
+    var scheduleOverriddenDate: String
+        get() = prefs.getString(KEY_SCHEDULE_OVERRIDDEN_DATE, "") ?: ""
+        set(value) = prefs.edit().putString(KEY_SCHEDULE_OVERRIDDEN_DATE, value).apply()
+
     // ── UI state persistence ─────────────────────────────────────────────────
 
     var lastSettingsTab: Int
@@ -196,6 +260,17 @@ class AppPreferences(context: Context) {
         private const val KEY_SIM_ACCOUNT_MAP            = "sim_account_map"
         private const val KEY_LAST_SEEN_ACCOUNT_ID       = "last_seen_account_id"
         private const val KEY_SIM_MAP_AUTO_BUILT         = "sim_map_auto_built"
+
+        // v1.7.0
+        private const val KEY_BLOCK_ON_VERIF_FAILED      = "block_on_verif_failed"
+        private const val KEY_STIR_SHAKEN_SIM_TARGET     = "stir_shaken_sim_target"
+        private const val KEY_DIALED_WHITELIST_ENABLED   = "dialed_whitelist_enabled"
+        private const val KEY_DIALED_WINDOW_HOURS        = "dialed_window_hours"
+        private const val KEY_DIALED_WHITELIST_SIM_TARGET= "dialed_whitelist_sim_target"
+        private const val KEY_SCHEDULE_ENABLED           = "schedule_enabled"
+        private const val KEY_SCHEDULE_ACTIVE_LABEL      = "schedule_active_label"
+        private const val KEY_SCHEDULE_OVERRIDDEN_TODAY  = "schedule_overridden_today"
+        private const val KEY_SCHEDULE_OVERRIDDEN_DATE   = "schedule_overridden_date"
 
         const val NOTIFICATION_CHANNEL_ID   = "blocked_calls"
         const val NOTIFICATION_CHANNEL_NAME = "Blocked calls"

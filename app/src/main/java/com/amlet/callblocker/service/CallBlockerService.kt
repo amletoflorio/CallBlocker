@@ -89,7 +89,34 @@ class CallBlockerService : CallScreeningService() {
                     val whitelistEntry = runBlocking { repository.findByNumber(rawNumber) }
                     val inWhitelist    = whitelistEntry != null && !whitelistEntry.isExpired
 
-                    android.util.Log.d("CallBlocker", "inContacts=$inContacts inWhitelist=$inWhitelist")
+                    // ── STIR/SHAKEN verification status (API 31+) ──────────────
+                    // Constants from Call.Details (API 31): PASSED=1, FAILED=2, NOT_VERIFIED=3.
+                    // We read them via reflection to avoid a hard API-31 compile dependency
+                    // while compileSdk = 34 and minSdk = 29.
+                    val verificationStatus: String? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        try {
+                            val statusInt = callDetails.callerNumberVerificationStatus
+                            when (statusInt) {
+                                1    -> BlockedCallEntity.VERIF_PASSED        // VERIFICATION_STATUS_PASSED
+                                2    -> BlockedCallEntity.VERIF_FAILED        // VERIFICATION_STATUS_FAILED
+                                3    -> BlockedCallEntity.VERIF_NOT_VERIFIED  // VERIFICATION_STATUS_NOT_VERIFIED
+                                else -> null
+                            }
+                        } catch (_: Exception) { null }
+                    } else null
+
+                    // ── Block on STIR/SHAKEN FAILED (if enabled) ───────────────
+                    if (prefs.blockOnVerificationFailed &&
+                        verificationStatus == BlockedCallEntity.VERIF_FAILED &&
+                        shouldProtectThisSimForFeature(callDetails, prefs.stirShakenSimTarget)) {
+                        android.util.Log.d("CallBlocker", "→ BLOCK (STIR/SHAKEN FAILED)")
+                        logBlockedCall(rawNumber, callDetails, verificationStatus = verificationStatus)
+                        notifyBlocked(rawNumber)
+                        respondToCall(callDetails, buildBlockResponse())
+                        return
+                    }
+
+                    android.util.Log.d("CallBlocker", "inContacts=$inContacts inWhitelist=$inWhitelist verif=$verificationStatus")
 
                     if (inContacts || inWhitelist) {
                         if (whitelistEntry?.isExpired == true) {
@@ -97,6 +124,20 @@ class CallBlockerService : CallScreeningService() {
                         }
                         buildAllowResponse()
                     } else {
+                        // ── Dialed-number whitelist ────────────────────────────
+                        if (prefs.dialedNumberWhitelistEnabled &&
+                            shouldProtectThisSimForFeature(callDetails, prefs.dialedWhitelistSimTarget)) {
+                            val windowMs   = prefs.dialedWindowHours * 3_600_000L
+                            val sinceMs    = System.currentTimeMillis() - windowMs
+                            val wasDialed  = wasDialedRecently(rawNumber, sinceMs)
+                            if (wasDialed) {
+                                android.util.Log.d("CallBlocker", "→ ALLOW (dialed recently)")
+                                logAllowedCall(rawNumber, callDetails, BlockedCallEntity.ALLOW_OUTGOING_RECENT, verificationStatus)
+                                respondToCall(callDetails, buildAllowResponse())
+                                return
+                            }
+                        }
+
                         // Advanced retry rule
                         if (prefs.retryRuleEnabled) {
                             val windowMs = prefs.retryRuleWindowMinutes * 60_000L
@@ -116,7 +157,7 @@ class CallBlockerService : CallScreeningService() {
                         }
 
                         android.util.Log.d("CallBlocker", "→ BLOCK")
-                        logBlockedCall(rawNumber, callDetails)
+                        logBlockedCall(rawNumber, callDetails, verificationStatus = verificationStatus)
                         notifyBlocked(rawNumber)
                         buildBlockResponse()
                     }
@@ -376,6 +417,48 @@ class CallBlockerService : CallScreeningService() {
         }
     }
 
+    /**
+     * Per-feature SIM guard: checks whether the call is on a SIM that the
+     * specified feature target covers.
+     */
+    private fun shouldProtectThisSimForFeature(callDetails: Call.Details, simTarget: String): Boolean {
+        if (simTarget == AppPreferences.SIM_BOTH) return true
+        val slot = simSlotFromHandle(callDetails) ?: return true
+        return when (simTarget) {
+            AppPreferences.SIM_1 -> slot == "SIM1"
+            AppPreferences.SIM_2 -> slot == "SIM2"
+            else -> true
+        }
+    }
+
+    /**
+     * Returns true if [rawNumber] appears in the outgoing call log within the
+     * [sinceMs] window.  Uses READ_CALL_LOG permission already declared in the Manifest.
+     */
+    private fun wasDialedRecently(rawNumber: String, sinceMs: Long): Boolean {
+        return try {
+            val normalised = PhoneUtils.normalize(rawNumber)
+            val cursor = contentResolver.query(
+                CallLog.Calls.CONTENT_URI,
+                arrayOf(CallLog.Calls.NUMBER, CallLog.Calls.DATE, CallLog.Calls.TYPE),
+                "${CallLog.Calls.TYPE} = ? AND ${CallLog.Calls.DATE} >= ?",
+                arrayOf(CallLog.Calls.OUTGOING_TYPE.toString(), sinceMs.toString()),
+                "${CallLog.Calls.DATE} DESC"
+            )
+            cursor?.use { c ->
+                val idxNumber = c.getColumnIndex(CallLog.Calls.NUMBER)
+                while (c.moveToNext()) {
+                    val logged = PhoneUtils.normalize(c.getString(idxNumber) ?: "")
+                    if (logged == normalised) return@use true
+                }
+                false
+            } ?: false
+        } catch (e: Exception) {
+            android.util.Log.w("CallBlocker", "wasDialedRecently failed: ${e.message}")
+            false
+        }
+    }
+
     // ── Contacts ──────────────────────────────────────────────────────────────
 
     private fun isInSystemContacts(number: String): Boolean {
@@ -407,7 +490,11 @@ class CallBlockerService : CallScreeningService() {
 
     // ── Call log ──────────────────────────────────────────────────────────────
 
-    private fun logBlockedCall(number: String, callDetails: Call.Details) {
+    private fun logBlockedCall(
+        number: String,
+        callDetails: Call.Details,
+        verificationStatus: String? = null
+    ) {
         val callTimeMs      = System.currentTimeMillis()
         val simFromHandle   = simSlotFromHandle(callDetails)
         val accountHandleId = try { callDetails.accountHandle?.id } catch (e: Exception) { null }
@@ -419,12 +506,13 @@ class CallBlockerService : CallScreeningService() {
             // Insert with whatever SIM info we have immediately.
             val rowId = db.blockedCallDao().insertAndGetId(
                 BlockedCallEntity(
-                    phoneNumber     = PhoneUtils.normalize(number),
-                    blockedAt       = callTimeMs,
-                    simSlot         = simFromHandle,
-                    callDirection   = "incoming",
-                    accountHandleId = accountHandleId,
-                    callType        = BlockedCallEntity.TYPE_CALL
+                    phoneNumber        = PhoneUtils.normalize(number),
+                    blockedAt          = callTimeMs,
+                    simSlot            = simFromHandle,
+                    callDirection      = "incoming",
+                    accountHandleId    = accountHandleId,
+                    callType           = BlockedCallEntity.TYPE_CALL,
+                    verificationStatus = verificationStatus
                 )
             )
 
@@ -440,6 +528,36 @@ class CallBlockerService : CallScreeningService() {
             }
 
             pruneLogIfNeeded()
+        }
+    }
+
+    /**
+     * Logs a call that was allowed through for a specific reason (dialed whitelist, etc.)
+     * so the user can see it in the log with an explanatory badge.
+     */
+    private fun logAllowedCall(
+        number: String,
+        callDetails: Call.Details,
+        allowReason: String,
+        verificationStatus: String? = null
+    ) {
+        val callTimeMs      = System.currentTimeMillis()
+        val simFromHandle   = simSlotFromHandle(callDetails)
+        val accountHandleId = try { callDetails.accountHandle?.id } catch (e: Exception) { null }
+
+        serviceScope.launch {
+            db.blockedCallDao().insertAndGetId(
+                BlockedCallEntity(
+                    phoneNumber        = PhoneUtils.normalize(number),
+                    blockedAt          = callTimeMs,
+                    simSlot            = simFromHandle,
+                    callDirection      = "incoming",
+                    accountHandleId    = accountHandleId,
+                    callType           = BlockedCallEntity.TYPE_CALL,
+                    verificationStatus = verificationStatus,
+                    allowReason        = allowReason
+                )
+            )
         }
     }
 
@@ -488,6 +606,7 @@ class CallBlockerService : CallScreeningService() {
             number.hashCode(),
             NotificationCompat.Builder(this, AppPreferences.NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
+                .setLargeIcon(notifLargeIcon())
                 .setColor(0xFF10B981.toInt())
                 .setContentTitle(getString(R.string.notif_blocked_title))
                 .setContentText(number)
@@ -512,6 +631,7 @@ class CallBlockerService : CallScreeningService() {
             NOTIF_ID_RETRY_RULE,
             NotificationCompat.Builder(this, CHANNEL_RETRY_RULE)
                 .setSmallIcon(R.drawable.ic_notification)
+                .setLargeIcon(notifLargeIcon())
                 .setColor(0xFF10B981.toInt())
                 .setContentTitle(getString(R.string.notif_retry_rule_title))
                 .setContentText(getString(R.string.notif_retry_rule_text, number, attempts, windowMinutes))
@@ -618,6 +738,23 @@ class CallBlockerService : CallScreeningService() {
         } catch (e: Exception) {
             android.util.Log.w("CallBlocker", "buildSimMap failed: ${e.message}")
         }
+    }
+
+
+    /**
+     * Returns a Bitmap version of ic_notification tinted with the app accent colour.
+     * Used as large icon so the expanded notification matches the small icon in the
+     * status bar — preventing Android from falling back to the launcher icon.
+     */
+    private fun notifLargeIcon(): android.graphics.Bitmap {
+        val size = (48 * resources.displayMetrics.density).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val drawable = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_notification)!!
+        drawable.setBounds(0, 0, size, size)
+        androidx.core.graphics.drawable.DrawableCompat.setTint(drawable, 0xFF10B981.toInt())
+        drawable.draw(canvas)
+        return bmp
     }
 
         companion object {

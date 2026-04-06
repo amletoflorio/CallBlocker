@@ -136,7 +136,7 @@
     <!-- Settings — Dual SIM -->
     <string name="settings_sim_title">Protected SIM</string>
     <string name="settings_sim_subtitle">Choose which SIM card(s) to protect. The SIM is detected automatically from your call history.</string>
-    <string name="settings_sim_rescan">Re-detect SIM</string>
+    <string name="settings_sim_rescan">Update SIM</string>
     <string name="settings_sim_1">SIM 1</string>
     <string name="settings_sim_2">SIM 2</string>
     <string name="settings_sim_both">Both</string>
@@ -285,4 +285,71 @@
     <string name="date_format_full">EEEE d MMMM</string>
     <string name="date_format_time">HH:mm</string>
 
+
+<!-- v1.7.0 — Schedule tab -->
+    <string name="settings_tab_schedule">Schedule</string>
+    <string name="settings_schedule_title">Automatic scheduling</string>
+    <string name="settings_schedule_subtitle">Activate or deactivate blocking on a timetable</string>
+    <string name="settings_schedule_info">Alarms are exact and fire even in Doze mode. Each rule runs every week on the selected days.</string>
+    <string name="settings_schedule_empty">No rules yet.\nTap the button below to add one.</string>
+    <string name="settings_schedule_add">Add rule</string>
+    <string name="settings_schedule_edit">Edit rule</string>
+    <string name="settings_schedule_mode_label">Mode</string>
+    <string name="settings_schedule_mode_activate">Activate blocking</string>
+    <string name="settings_schedule_mode_deactivate">Deactivate blocking</string>
+    <string name="settings_schedule_days_label">Days</string>
+    <string name="settings_schedule_start">Start</string>
+    <string name="settings_schedule_end">End</string>
+
+    <!-- v1.7.0 — STIR/SHAKEN -->
+    <string name="settings_stir_title">Block spoofed calls (STIR/SHAKEN)</string>
+    <string name="settings_stir_subtitle">Automatically block calls that fail carrier verification</string>
+    <string name="settings_stir_disclaimer">In Italy, carriers do not uniformly implement STIR/SHAKEN. A "not verified" status does NOT mean spam — it simply means your carrier didn\'t provide a verdict. Only "FAILED" calls are blocked when this option is enabled.</string>
+
+    <!-- v1.7.0 — Dialed whitelist -->
+    <string name="settings_dialed_title">Allow replies to my calls</string>
+    <string name="settings_dialed_subtitle">Automatically allow calls from numbers you dialed recently</string>
+    <string name="settings_dialed_window_label">Time window</string>
+
+    <!-- v1.7.0 — Per-feature SIM label -->
+    <string name="settings_feature_sim_label">Apply to SIM</string>
+
+    <!-- v1.7.0 — HomeScreen schedule banners -->
+    <string name="home_schedule_deactivate_at">Automatically deactivated until %1$s</string>
+    <string name="home_schedule_reactivate_at">Automatically reactivated at %1$s</string>
+    <string name="home_schedule_override_title">Override schedule</string>
+    <string name="home_schedule_override_body">The schedule changed this setting automatically. Do you want to override it?</string>
+    <string name="home_schedule_override_today">Override for today only</string>
+    <string name="home_schedule_override_forever">Disable schedule permanently</string>
+
+    <!-- v1.7.0 — CallDetailScreen STIR/SHAKEN badges -->
+    <string name="call_detail_verif_passed">Verified</string>
+    <string name="call_detail_verif_failed">Failed</string>
+    <string name="call_detail_verif_not_verified">Not verified</string>
+    <string name="call_detail_verif_passed_title">Number verified by carrier</string>
+    <string name="call_detail_verif_passed_body">The caller\'s number was confirmed as authentic by their carrier via STIR/SHAKEN.</string>
+    <string name="call_detail_verif_failed_title">Verification failed — possible spoofing</string>
+    <string name="call_detail_verif_failed_body">The carrier checked this number and the verification failed. This can indicate that the caller\'s number has been spoofed (falsified).</string>
+    <string name="call_detail_verif_not_verified_title">Not verified</string>
+    <string name="call_detail_verif_not_verified_body">No verdict was provided. This is normal in Italy and does not mean the call is spam — it simply means the carrier did not participate in the verification.</string>
+
+    <!-- v1.7.0 — CallDetailScreen SIM received on -->
+    <string name="call_detail_sim_received">Received on</string>
+
+    <!-- v1.7.0 — CallDetailScreen allow reasons -->
+    <string name="call_detail_allow_reason_dialed">Allowed: you called this number recently</string>
+    <string name="call_detail_allow_reason_retry">Allowed: retry rule triggered</string>
+
+    <!-- v1.7.0 — Common -->
+    <string name="common_save">Save</string>
+
+    <!-- v1.7.0 — Changelog entries -->
+    <string name="changelog_1_7_0_1">Fixed: blocked call detail now shows which SIM received the call</string>
+    <string name="changelog_1_7_0_2">Fixed: notification icon is now consistently the monochrome shield in both collapsed and expanded state</string>
+    <string name="changelog_1_7_0_3">Fixed: "Re-detect SIM" button label updated for clarity</string>
+    <string name="changelog_1_7_0_4">STIR/SHAKEN: show caller verification badge in log and detail; optional rule to block FAILED calls</string>
+    <string name="changelog_1_7_0_5">Dialed whitelist: automatically allow callbacks from numbers you called recently (configurable window)</string>
+    <string name="changelog_1_7_0_6">Schedule: new tab to activate/deactivate blocking on a weekly timetable with exact alarms</string>
+    <string name="changelog_1_7_0_7">Schedule: HomeScreen shows an explanatory banner when state was changed automatically</string>
+    <string name="changelog_1_7_0_8">Per-feature SIM targeting: STIR/SHAKEN, dialed whitelist and schedule rules can each target SIM 1, SIM 2, or both</string>
 </resources>

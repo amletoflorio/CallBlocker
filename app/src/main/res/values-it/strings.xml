@@ -135,7 +135,7 @@
     <!-- Settings — Dual SIM -->
     <string name="settings_sim_title">SIM protetta</string>
     <string name="settings_sim_subtitle">Scegli quale SIM proteggere. La SIM viene rilevata automaticamente dalla cronologia chiamate.</string>
-    <string name="settings_sim_rescan">Ririleva SIM</string>
+    <string name="settings_sim_rescan">Aggiorna SIM</string>
     <string name="settings_sim_1">SIM 1</string>
     <string name="settings_sim_2">SIM 2</string>
     <string name="settings_sim_both">Entrambe</string>
@@ -284,4 +284,71 @@
     <string name="date_format_full">EEEE d MMMM</string>
     <string name="date_format_time">HH:mm</string>
 
+
+<!-- v1.7.0 — Tab Schedule -->
+    <string name="settings_tab_schedule">Pianificazione</string>
+    <string name="settings_schedule_title">Pianificazione automatica</string>
+    <string name="settings_schedule_subtitle">Attiva o disattiva il blocco in base a orari e giorni</string>
+    <string name="settings_schedule_info">Gli allarmi sono esatti e si attivano anche in modalità Doze. Ogni regola si ripete ogni settimana nei giorni selezionati.</string>
+    <string name="settings_schedule_empty">Nessuna regola.\nPremi il pulsante qui sotto per aggiungerne una.</string>
+    <string name="settings_schedule_add">Aggiungi regola</string>
+    <string name="settings_schedule_edit">Modifica regola</string>
+    <string name="settings_schedule_mode_label">Modalità</string>
+    <string name="settings_schedule_mode_activate">Attiva blocco</string>
+    <string name="settings_schedule_mode_deactivate">Disattiva blocco</string>
+    <string name="settings_schedule_days_label">Giorni</string>
+    <string name="settings_schedule_start">Inizio</string>
+    <string name="settings_schedule_end">Fine</string>
+
+    <!-- v1.7.0 — STIR/SHAKEN -->
+    <string name="settings_stir_title">Blocca chiamate falsificate (STIR/SHAKEN)</string>
+    <string name="settings_stir_subtitle">Blocca automaticamente le chiamate che non superano la verifica del gestore</string>
+    <string name="settings_stir_disclaimer">In Italia i gestori non implementano STIR/SHAKEN in modo uniforme. Lo stato "non verificato" NON significa spam — significa solo che il gestore non ha fornito un verdetto. Solo le chiamate con stato "FALLITA" vengono bloccate quando questa opzione è attiva.</string>
+
+    <!-- v1.7.0 — Whitelist chiamate effettuate -->
+    <string name="settings_dialed_title">Consenti risposta alle mie chiamate</string>
+    <string name="settings_dialed_subtitle">Permetti automaticamente le chiamate dai numeri che hai chiamato di recente</string>
+    <string name="settings_dialed_window_label">Finestra temporale</string>
+
+    <!-- v1.7.0 — SIM per funzione -->
+    <string name="settings_feature_sim_label">Applica alla SIM</string>
+
+    <!-- v1.7.0 — HomeScreen banner pianificazione -->
+    <string name="home_schedule_deactivate_at">Disattivato automaticamente fino alle %1$s</string>
+    <string name="home_schedule_reactivate_at">Si riattiva automaticamente alle %1$s</string>
+    <string name="home_schedule_override_title">Override pianificazione</string>
+    <string name="home_schedule_override_body">La pianificazione ha modificato questa impostazione automaticamente. Vuoi sovrascriverla?</string>
+    <string name="home_schedule_override_today">Sostituisci solo oggi</string>
+    <string name="home_schedule_override_forever">Disabilita la pianificazione per sempre</string>
+
+    <!-- v1.7.0 — CallDetailScreen badge STIR/SHAKEN -->
+    <string name="call_detail_verif_passed">Verificato</string>
+    <string name="call_detail_verif_failed">Fallita</string>
+    <string name="call_detail_verif_not_verified">Non verificato</string>
+    <string name="call_detail_verif_passed_title">Numero verificato dal gestore</string>
+    <string name="call_detail_verif_passed_body">Il numero del chiamante è stato confermato come autentico dal suo gestore tramite STIR/SHAKEN.</string>
+    <string name="call_detail_verif_failed_title">Verifica fallita — possibile spoofing</string>
+    <string name="call_detail_verif_failed_body">Il gestore ha controllato questo numero e la verifica è fallita. Può indicare che il numero del chiamante è stato falsificato (spoofing).</string>
+    <string name="call_detail_verif_not_verified_title">Non verificato</string>
+    <string name="call_detail_verif_not_verified_body">Nessun verdetto disponibile. È normale in Italia e non significa che la chiamata sia spam — significa solo che il gestore non ha partecipato alla verifica.</string>
+
+    <!-- v1.7.0 — SIM ricevuta su -->
+    <string name="call_detail_sim_received">Ricevuta su</string>
+
+    <!-- v1.7.0 — Motivo consenso -->
+    <string name="call_detail_allow_reason_dialed">Consentita: hai chiamato questo numero di recente</string>
+    <string name="call_detail_allow_reason_retry">Consentita: regola tentativi scattata</string>
+
+    <!-- v1.7.0 — Comune -->
+    <string name="common_save">Salva</string>
+
+    <!-- Changelog v1.7.0 -->
+    <string name="changelog_1_7_0_1">Corretto: i dettagli chiamata bloccata mostrano ora su quale SIM è stata ricevuta</string>
+    <string name="changelog_1_7_0_2">Corretto: l\'icona notifica è sempre quella monocromatica a scudo, anche nell\'espansione</string>
+    <string name="changelog_1_7_0_3">Corretto: etichetta pulsante "Rileva SIM" aggiornata</string>
+    <string name="changelog_1_7_0_4">STIR/SHAKEN: badge verifica chiamante nel log e nel dettaglio; regola opzionale per bloccare le chiamate FALLITE</string>
+    <string name="changelog_1_7_0_5">Whitelist chiamate effettuate: consenti automaticamente i richiami da numeri chiamati di recente (finestra configurabile)</string>
+    <string name="changelog_1_7_0_6">Pianificazione: nuovo tab per attivare/disattivare il blocco con orari settimanali e allarmi esatti</string>
+    <string name="changelog_1_7_0_7">Pianificazione: la HomeScreen mostra un banner esplicativo quando lo stato cambia automaticamente</string>
+    <string name="changelog_1_7_0_8">SIM per funzione: STIR/SHAKEN, whitelist chiamate e regole di pianificazione possono applicarsi a SIM 1, SIM 2 o entrambe</string>
 </resources>

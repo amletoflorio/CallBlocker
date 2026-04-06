@@ -42,6 +42,7 @@ object NotificationHelper {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notification = NotificationCompat.Builder(context, CHANNEL_BACKUP)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(largeIcon(context))
                 .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(if (success) R.string.notif_backup_success_title else R.string.notif_backup_error_title))
             .setContentText(message)
@@ -55,6 +56,7 @@ object NotificationHelper {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notification = NotificationCompat.Builder(context, CHANNEL_BACKUP)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(largeIcon(context))
                 .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(if (success) R.string.notif_restore_success_title else R.string.notif_restore_error_title))
             .setContentText(message)
@@ -70,6 +72,7 @@ object NotificationHelper {
         val message = context.getString(R.string.notif_auto_backup_success_text, contactCount)
         val notification = NotificationCompat.Builder(context, CHANNEL_AUTO_BACKUP)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(largeIcon(context))
                 .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(R.string.notif_auto_backup_success_title))
             .setContentText(message)
@@ -83,11 +86,24 @@ object NotificationHelper {
         val nm = context.getSystemService(NotificationManager::class.java)
         val notification = NotificationCompat.Builder(context, CHANNEL_AUTO_BACKUP)
             .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(largeIcon(context))
                 .setColor(0xFF10B981.toInt())
             .setContentTitle(context.getString(R.string.notif_auto_backup_error_title))
             .setContentText(context.getString(R.string.notif_auto_backup_error_text))
             .setAutoCancel(true)
             .build()
         nm.notify(NOTIF_ID_AUTO_BACKUP, notification)
+    }
+
+
+    private fun largeIcon(context: android.content.Context): android.graphics.Bitmap {
+        val size = (48 * context.resources.displayMetrics.density).toInt()
+        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bmp)
+        val drawable = androidx.core.content.ContextCompat.getDrawable(context, R.drawable.ic_notification)!!
+        drawable.setBounds(0, 0, size, size)
+        androidx.core.graphics.drawable.DrawableCompat.setTint(drawable, 0xFF10B981.toInt())
+        drawable.draw(canvas)
+        return bmp
     }
 }

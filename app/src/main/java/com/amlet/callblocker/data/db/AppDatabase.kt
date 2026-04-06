@@ -8,14 +8,15 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ContactEntity::class, BlockedCallEntity::class],
-    version = 9,
+    entities = [ContactEntity::class, BlockedCallEntity::class, ScheduleRuleEntity::class],
+    version = 10,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun contactDao(): ContactDao
     abstract fun blockedCallDao(): BlockedCallDao
+    abstract fun scheduleRuleDao(): ScheduleRuleDao
 
     companion object {
         @Volatile
@@ -148,6 +149,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v9 → v10: adds verificationStatus and allowReason to blocked_calls;
+         * creates the schedule_rules table.
+         */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE blocked_calls ADD COLUMN verificationStatus TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE blocked_calls ADD COLUMN allowReason TEXT DEFAULT NULL")
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS schedule_rules (
+                        id          INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        mode        TEXT    NOT NULL,
+                        days        TEXT    NOT NULL,
+                        startTime   TEXT    NOT NULL,
+                        endTime     TEXT    NOT NULL,
+                        enabled     INTEGER NOT NULL DEFAULT 1,
+                        simTarget   TEXT    NOT NULL DEFAULT 'both'
+                    )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -162,7 +185,8 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_5_6,
                         MIGRATION_6_7,
                         MIGRATION_7_8,
-                        MIGRATION_8_9
+                        MIGRATION_8_9,
+                        MIGRATION_9_10
                     )
                     .build()
                     .also { INSTANCE = it }

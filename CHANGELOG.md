@@ -4,7 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.6.0] - Latest
+## [v1.7.0] - Latest
+
+### Bug Fixes
+- Fixed: SIM slot not shown in blocked call detail screen — now displays which SIM received the call
+- Fixed: notification icon inconsistency — monochrome (negative) version is now used in both the status bar and expanded notification, eliminating launcher icon bleed-through
+- Fixed: label "Ririleva SIM" renamed to "Rileva SIM" / "Aggiorna SIM" throughout the UI
+
+### New Features
+
+#### STIR/SHAKEN — Call attestation
+- **Call attestation reading from `Call.Details`** — Android exposes the verification level directly via `getCallerNumberVerificationStatus()`, no external APIs required. Possible values: `VERIFICATION_STATUS_PASSED` (number verified by carrier), `VERIFICATION_STATUS_FAILED` (verification failed, likely spoofing), `VERIFICATION_STATUS_NOT_VERIFIED` (carrier does not support the standard)
+- **Attestation-based blocking** — new optional rule in `CallBlockerService`: automatically block calls with `FAILED` attestation regardless of the whitelist. Configurable via toggle in Settings, per SIM
+- **Attestation badge in call log** — colored icon next to each call: green (verified), red (failed), gray (not verified). The number detail screen includes a plain-language explanation for non-technical users
+- **Prominent disclaimer in Settings** — informs the user that Italian carriers do not implement STIR/SHAKEN uniformly, so `NOT_VERIFIED` does not necessarily mean spam
+
+#### Outgoing call auto-whitelist ("I called first")
+- **Outgoing call logic** — if the user has called a number in the last X hours (configurable: 1 / 6 / 24 / 48), that number is automatically allowed even if it is not in the contacts or whitelist. Reads outgoing call log via `CallLog.Calls.OUTGOING_TYPE` with the `READ_CALL_LOG` permission already present in the Manifest
+- **Settings configuration** — toggle "Allow calls from numbers I have dialed" with a slider for the time window. A dedicated badge is shown in the call log when a call is allowed for this reason
+
+#### Scheduled blocking rules
+- **Schedule screen in Settings** — two distinct modes: *Auto-enable blocking* (e.g. nights, weekends) and *Auto-disable blocking* (e.g. working hours, to avoid missing work calls)
+- **Granular configuration** — day-of-week selector (M/T/W/T/F/S/S) + start and end time per rule. Multiple rules supported (e.g. "disable Mon–Fri 9:00–18:00" + "enable always Sat–Sun"). Each rule is configurable per SIM or for both
+- **`AlarmManager` implementation** — uses `setExactAndAllowWhileIdle()` to schedule activation and deactivation. Rules are persisted in a dedicated Room table (`ScheduleRuleEntity`)
+- **HomeScreen status indicator** — when blocking is active or inactive due to a scheduled rule, a label is shown below the main toggle (e.g. "Auto-disabled until 18:00") so the user understands why the state changed without touching anything
+- **Manual override** — tapping the toggle while a scheduled rule is active shows a dialog: "Disable this rule only for today or permanently?"
+
+### Configuration
+- Added Room table `ScheduleRuleEntity` with dedicated non-destructive migration
+- Bump `versionCode` to 7 and `versionName` to `1.7.0`
+
+---
+
+## [v1.6.0]
 
 ### New Features
 - **Advanced retry rule** — new option in Settings → Protection: if a blocked number calls X times (2–10, configurable) within Y minutes (5 / 10 / 30 / 60), the call is allowed through and the number is added to a temporary whitelist; a high-priority notification informs the user

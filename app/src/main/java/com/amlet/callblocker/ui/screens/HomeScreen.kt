@@ -57,8 +57,42 @@ fun HomeScreen(
     }
     val protectedSim by remember { mutableStateOf(prefs.protectedSim) }
 
+    // Schedule state — read from prefs and refresh on each recomposition
+    var scheduleLabel by remember { mutableStateOf(prefs.scheduleActiveLabel) }
+    var showScheduleOverrideDialog by remember { mutableStateOf(false) }
+
+    // Refresh scheduleLabel whenever isServiceEnabled changes (alarm may have fired)
+    LaunchedEffect(isServiceEnabled) { scheduleLabel = prefs.scheduleActiveLabel }
+
+    if (showScheduleOverrideDialog) {
+        ScheduleOverrideDialog(
+            onOverrideToday = {
+                val today = java.text.SimpleDateFormat("yyyyMMdd", java.util.Locale.getDefault()).format(java.util.Date())
+                prefs.scheduleOverriddenToday = true
+                prefs.scheduleOverriddenDate  = today
+                onToggleService()
+                showScheduleOverrideDialog = false
+            },
+            onOverrideForever = {
+                prefs.scheduleEnabled = false
+                onToggleService()
+                showScheduleOverrideDialog = false
+            },
+            onDismiss = { showScheduleOverrideDialog = false }
+        )
+    }
+
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+
+    // Wrap toggle: if schedule is active, show override dialog instead of directly toggling
+    val handleToggle: () -> Unit = {
+        if (prefs.scheduleEnabled && scheduleLabel.isNotEmpty()) {
+            showScheduleOverrideDialog = true
+        } else {
+            onToggleService()
+        }
+    }
 
     Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         if (isLandscape) {
@@ -68,10 +102,11 @@ fun HomeScreen(
                 blockedCount = blockedCount,
                 isServiceEnabled = isServiceEnabled,
                 suspendUntil = suspendUntil,
+                scheduleLabel = scheduleLabel,
                 statusColor = statusColor,
                 isDualSim = isDualSim,
                 protectedSim = protectedSim,
-                onToggleService = onToggleService,
+                onToggleService = handleToggle,
                 onNavigateToContacts = onNavigateToContacts,
                 onNavigateToSettings = onNavigateToSettings,
                 onNavigateToCallLog = onNavigateToCallLog
@@ -83,10 +118,11 @@ fun HomeScreen(
                 blockedCount = blockedCount,
                 isServiceEnabled = isServiceEnabled,
                 suspendUntil = suspendUntil,
+                scheduleLabel = scheduleLabel,
                 statusColor = statusColor,
                 isDualSim = isDualSim,
                 protectedSim = protectedSim,
-                onToggleService = onToggleService,
+                onToggleService = handleToggle,
                 onNavigateToContacts = onNavigateToContacts,
                 onNavigateToSettings = onNavigateToSettings,
                 onNavigateToCallLog = onNavigateToCallLog
@@ -104,6 +140,7 @@ private fun PortraitHomeLayout(
     blockedCount: Int,
     isServiceEnabled: Boolean,
     suspendUntil: Long,
+    scheduleLabel: String,
     statusColor: androidx.compose.ui.graphics.Color,
     isDualSim: Boolean,
     protectedSim: String,
@@ -142,6 +179,11 @@ private fun PortraitHomeLayout(
             Spacer(modifier = Modifier.height(8.dp))
         }
 
+        if (scheduleLabel.isNotEmpty()) {
+            ScheduleActiveBanner(label = scheduleLabel)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         Spacer(modifier = Modifier.height(12.dp))
         StatsCard(contactCount = contactCount, blockedCount = blockedCount)
         Spacer(modifier = Modifier.height(20.dp))
@@ -166,6 +208,7 @@ private fun LandscapeHomeLayout(
     blockedCount: Int,
     isServiceEnabled: Boolean,
     suspendUntil: Long,
+    scheduleLabel: String,
     statusColor: androidx.compose.ui.graphics.Color,
     isDualSim: Boolean,
     protectedSim: String,
@@ -188,33 +231,20 @@ private fun LandscapeHomeLayout(
         ) {
             HomeHeader(onNavigateToSettings = onNavigateToSettings)
             Spacer(modifier = Modifier.height(16.dp))
-            HomeToggleCircle(
-                isServiceEnabled = isServiceEnabled,
-                statusColor = statusColor,
-                onToggleService = onToggleService
-            )
-            if (isDualSim && isServiceEnabled) {
-                Spacer(modifier = Modifier.height(8.dp))
-                SimProtectionBadge(protectedSim = protectedSim)
-            }
-            if (suspendUntil > 0L) {
-                Spacer(modifier = Modifier.height(8.dp))
-                SuspendedBanner(suspendUntil = suspendUntil)
-            }
+            HomeToggleCircle(isServiceEnabled = isServiceEnabled, statusColor = statusColor, onToggleService = onToggleService)
+            if (isDualSim && isServiceEnabled) { Spacer(Modifier.height(8.dp)); SimProtectionBadge(protectedSim = protectedSim) }
+            if (suspendUntil > 0L) { Spacer(Modifier.height(8.dp)); SuspendedBanner(suspendUntil = suspendUntil) }
+            if (scheduleLabel.isNotEmpty()) { Spacer(Modifier.height(8.dp)); ScheduleActiveBanner(label = scheduleLabel) }
         }
-
         Column(
             modifier = Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
             StatsCard(contactCount = contactCount, blockedCount = blockedCount)
-            HomeButtons(
-                onNavigateToContacts = onNavigateToContacts,
-                onNavigateToCallLog = onNavigateToCallLog
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            HomeButtons(onNavigateToContacts = onNavigateToContacts, onNavigateToCallLog = onNavigateToCallLog)
+            Spacer(Modifier.height(8.dp))
             HomeDisclaimer()
         }
     }
@@ -312,20 +342,65 @@ private fun SuspendedBanner(suspendUntil: Long) {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Icon(
-                Icons.Rounded.PauseCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error,
-                modifier = Modifier.size(18.dp)
-            )
-            Text(
-                text = stringResource(R.string.home_suspended_until, untilLabel),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error
-            )
+            Icon(Icons.Rounded.PauseCircle, contentDescription = null,
+                tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
+            Text(text = stringResource(R.string.home_suspended_until, untilLabel),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         }
     }
 }
+
+@Composable
+private fun ScheduleActiveBanner(label: String) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(Icons.Rounded.Schedule, null,
+                tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(18.dp))
+            Text(text = label, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSecondaryContainer)
+        }
+    }
+}
+
+@Composable
+private fun ScheduleOverrideDialog(
+    onOverrideToday: () -> Unit,
+    onOverrideForever: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Schedule, null) },
+        title = { Text(stringResource(R.string.home_schedule_override_title)) },
+        text = { Text(stringResource(R.string.home_schedule_override_body),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+        confirmButton = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onOverrideToday, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)) {
+                    Text(stringResource(R.string.home_schedule_override_today))
+                }
+                OutlinedButton(onClick = onOverrideForever, modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)) {
+                    Text(stringResource(R.string.home_schedule_override_forever))
+                }
+                TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        },
+        dismissButton = {}
+    )
+}
+
 
 @Composable
 private fun StatsCard(contactCount: Int, blockedCount: Int) {
