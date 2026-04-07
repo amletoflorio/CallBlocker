@@ -46,4 +46,8 @@ interface ContactDao {
     /** Bulk insert used when restoring from a backup. */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(contacts: List<ContactEntity>)
+
+    /** Synchronous count — for use in AppWidgets. */
+    @Query("SELECT COUNT(*) FROM allowed_contacts")
+    fun countSync(): Int
 }

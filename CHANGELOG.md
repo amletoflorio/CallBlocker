@@ -4,7 +4,57 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.7.0] - Latest
+## [v1.8.0] - Latest
+
+### New Features
+
+#### Home screen widgets
+- **Toggle widget (2×1)** — one-tap on/off button on the home screen; no need to open the app. Uses `suspendUntil` to mirror the exact toggle logic of the app itself
+- **Status widget (2×2)** — informational widget showing current protection state, whitelist contact count, and the last blocked call (number + timestamp)
+- Both widgets are compatible with MIUI/HyperOS launchers (RemoteViews-safe layouts)
+
+#### Full settings export / import
+- **Export all settings** — serialises every user-configurable preference to a single JSON file; suitable for migration to a new device or reinstall
+- **Import all settings** — restores the full configuration from a previously exported JSON file
+- Available in Settings → Backup, with dedicated Export / Import buttons (separate from the whitelist backup)
+
+#### SIM badge in call log list
+- Each entry in the blocked calls list now shows a small SIM badge (SIM1 / SIM2) inline with the date, when the SIM could be determined
+
+### Improvements
+- Home screen title redesigned: **"Call"** in white, **"Blocker"** in emerald green — more distinctive and on-brand
+- Toggle circle now shows a **pulsing glow ring** when protection is active (infinite animation via `rememberInfiniteTransition`)
+- Status banners (SIM badge, suspended, schedule) now **animate in and out** with `AnimatedVisibility` (fade + vertical expand/shrink)
+- **Boot setting** moved from its own tab into the Backup tab as a card — the tab row is shorter and better organised
+- Export settings card in Backup now uses the correct button labels ("Export" / "Import") instead of reusing the whitelist export strings
+- App icon redesigned: **shield + phone handset**, dark Slate→Emerald gradient background
+- Launcher background color updated to `#020617` (Slate950) to match the app dark theme
+
+### Bug Fixes
+- **Fix: widget load error on MIUI** — `android:background` with a custom shape drawable on the `RemoteViews` root is not supported on MIUI; replaced with a plain solid color (`#E5020617`)
+- **Fix: `android:description` and `android:targetCellWidth/Height`** attributes in `appwidget-provider` XML caused load errors on MIUI (API 31+ only); removed
+- **Fix: widget toggle not syncing with app state** — the widget previously wrote `callProtectionEnabled = false`; the app reads `suspendUntil`. Widget now uses `suspendUntil = Long.MAX_VALUE` (off) / `cancelSuspend()` (on), matching the app's own toggle logic exactly
+- **Fix: StatusWidget crash on load** — `countSync()` and `getLastBlockedSync()` are synchronous Room queries that must not run on the main thread; widget now dispatches DB work to a background `Thread`
+- **Fix: call passed through when protection appeared active** — `callProtectionEnabled` was left as `false` in SharedPreferences by an older widget version; the service now relies solely on `isSuspended`; `callProtectionEnabled` is deprecated, always returns `true`, setter is no-op
+- **Fix: SIM slot always null on MIUI** — `buildSimMapFromCallLog` now handles negative `subscription_id` values written by MIUI (e.g. `-979867179`); added Strategy 2 (ordering-based mapping when ICCID is empty) and Strategy 3 (process-of-elimination deduction from partial map)
+- **Fix: notification icon** — uses correct alpha-mask format (`#FF000000`) on all Android versions; the previous `#FFFFFFFF` path defeated the mask mechanism
+- **Fix: `ic_launcher_background.xml` drawable** — removed to eliminate resource name conflict with `@color/ic_launcher_background` referenced by the adaptive icon
+- **Fix: unescaped apostrophes in Italian strings** — `l'ultima` and `dell'app` caused `AAPT Failed to compile values` error
+- **Fix: `BackupTab` missing `@Composable` annotation** — caused compile error
+- **Fix: `ContactDao.countSync()`** — used wrong table name `contacts` instead of `allowed_contacts`
+- **Fix: `StatusWidgetProvider`** — referenced non-existent field `timestamp` on `BlockedCallEntity`; correct field is `blockedAt`
+- **Fix: `AppPreferences` export/import methods** — were placed outside the class body (after the closing `}`), causing unresolved references to all `KEY_*` constants
+
+### Configuration
+- Added `widget/ToggleWidgetProvider.kt` and `widget/StatusWidgetProvider.kt`
+- Added `res/layout/widget_toggle.xml` and `res/layout/widget_status.xml`
+- Added `res/xml/toggle_widget_info.xml` and `res/xml/status_widget_info.xml`
+- Added `BlockedCallDao.countBlockedSync()`, `getLastBlockedSync()`, `ContactDao.countSync()` for widget DB access
+- Bump `versionCode` to 8, `versionName` to `1.8.0`
+
+---
+
+## [v1.7.0]
 
 ### Bug Fixes
 - Fixed: SIM slot not shown in blocked call detail screen — now displays which SIM received the call
@@ -32,7 +82,7 @@ All notable changes to this project will be documented in this file.
 
 ### Configuration
 - Added Room table `ScheduleRuleEntity` with dedicated non-destructive migration
-- Bump `versionCode` to 7 and `versionName` to `1.7.0`
+- Bump `versionCode` to 7, `versionName` to `1.7.0`
 
 ---
 
@@ -52,7 +102,7 @@ All notable changes to this project will be documented in this file.
 - SIM slot is now shown correctly for each individual blocked attempt in the log
 
 ### Configuration
-- Bumped `versionCode` to 6 and `versionName` to `1.6.0`
+- Bumped `versionCode` to 6, `versionName` to `1.6.0`
 
 ---
 
@@ -79,7 +129,7 @@ All notable changes to this project will be documented in this file.
 
 ### Configuration
 - Bumped Room database to version 3 with non-destructive migration (adds `simSlot` column to `blocked_calls`)
-- Bumped `versionCode` to 5 and `versionName` to `1.5.0`
+- Bumped `versionCode` to 5, `versionName` to `1.5.0`
 
 ---
 
@@ -99,14 +149,14 @@ All notable changes to this project will be documented in this file.
 - Added `READ_PHONE_STATE` permission to `AndroidManifest.xml` (used for dual-SIM detection via `SubscriptionManager`)
 - Added `LocaleHelper` utility for locale wrapping in `attachBaseContext`
 - Added `UpdateCheckWorker` with network constraint and automatic retry on error
-- Bumped `versionCode` to 4 and `versionName` to `1.4.0`
+- Bumped `versionCode` to 4, `versionName` to `1.4.0`
 
 ---
 
 ## [v1.3.0]
 
 ### New Features
-- **Automatic backup with WorkManager** — periodic JSON export every 1, 7, or 30 days (configurable), saved to `Documents/CallBlocker/` on the device
+- **Automatic backup with WorkManager** — periodic JSON export every 1, 7, or 30 days (configurable), saved to a user-chosen folder
 - **"Last export" label** — the Backup tab now shows the date and time of the last successful automatic backup
 - **Silent backup notification** — a low-priority notification is sent when the automatic backup completes, showing the number of contacts exported
 - **Update check via GitHub Releases** — opt-in toggle in the Info tab; tapping "Check now" calls the GitHub API, compares the tag with the current version, and shows a dialog with a download link if a newer release is available
@@ -114,9 +164,9 @@ All notable changes to this project will be documented in this file.
 
 ### Configuration
 - Added `INTERNET` permission to `AndroidManifest.xml` (used only for the opt-in update check)
-- Added `androidx.work:work-runtime-ktx:2.9.0` dependency for WorkManager
+- Added `androidx.work:work-runtime-ktx` dependency for WorkManager
 - Enabled `buildConfig = true` in `buildFeatures` (required for `BuildConfig.VERSION_NAME`)
-- Bumped `versionCode` to 3 and `versionName` to `1.3.0`
+- Bumped `versionCode` to 3, `versionName` to `1.3.0`
 
 ---
 

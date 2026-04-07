@@ -35,8 +35,9 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
+import com.amlet.callblocker.ui.theme.Emerald500
 
-private enum class SettingsTab { CALLS, SCHEDULE, BOOT, BACKUP, UPDATES, INFO }
+private enum class SettingsTab { CALLS, SCHEDULE, BACKUP, UPDATES, INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,7 +58,6 @@ fun SettingsScreen(
     val tabLabels = listOf(
         stringResource(R.string.settings_tab_calls),
         stringResource(R.string.settings_tab_schedule),
-        stringResource(R.string.settings_tab_boot),
         stringResource(R.string.settings_tab_backup),
         stringResource(R.string.settings_tab_updates),
         stringResource(R.string.settings_tab_info)
@@ -65,7 +65,6 @@ fun SettingsScreen(
     val tabIcons = listOf(
         Icons.Rounded.Call,
         Icons.Rounded.Schedule,
-        Icons.Rounded.RestartAlt,
         Icons.Rounded.Backup,
         Icons.Rounded.SystemUpdate,
         Icons.Rounded.Info
@@ -107,7 +106,6 @@ fun SettingsScreen(
             when (selectedTab) {
                 SettingsTab.CALLS    -> CallsTab(context, onApplyLogRetention)
                 SettingsTab.SCHEDULE -> ScheduleTab(context)
-                SettingsTab.BOOT     -> BootTab(context)
                 SettingsTab.BACKUP   -> BackupTab(context, onExportBackup, onImportBackup)
                 SettingsTab.UPDATES  -> UpdatesTab(context)
                 SettingsTab.INFO     -> InfoTab(context, onShowChangelog = { showChangelog = true }, onLanguageChanged = {})
@@ -629,34 +627,6 @@ private fun ScheduleRuleDialog(
     )
 }
 
-// ── Tab: Boot ─────────────────────────────────────────────────────────────────
-
-@Composable
-private fun BootTab(context: Context) {
-    val prefs = remember { AppPreferences(context) }
-    var reactivateOnBoot by remember { mutableStateOf(prefs.reactivateOnBoot) }
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Spacer(Modifier.height(8.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.RestartAlt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(16.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.settings_boot_title), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(R.string.settings_boot_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = reactivateOnBoot, onCheckedChange = { prefs.reactivateOnBoot = it; reactivateOnBoot = it })
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text(stringResource(R.string.settings_boot_info), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        Spacer(Modifier.height(16.dp))
-    }
-}
 
 // ── Tab: Backup ───────────────────────────────────────────────────────────────
 
@@ -666,21 +636,108 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
     var intervalDays    by remember { mutableStateOf(prefs.autoBackupIntervalDays) }
     val lastBackupAt    by remember { mutableStateOf(prefs.lastAutoBackupAt) }
     var folderUriString by remember { mutableStateOf(prefs.autoBackupFolderUri) }
+    var reactivateOnBoot by remember { mutableStateOf(prefs.reactivateOnBoot) }
+    var showImportConfigError by remember { mutableStateOf(false) }
+    var showImportConfigSuccess by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
     val filename = stringResource(R.string.settings_backup_filename)
+    val configFilename = stringResource(R.string.settings_config_filename)
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { onExportBackup(context, it) } }
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { onImportBackup(context, it) } }
+
+    // Export/import ALL settings
+    val exportConfigLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) {
+            try {
+                context.contentResolver.openOutputStream(uri)?.use { out ->
+                    out.write(prefs.exportSettingsAsJson().toByteArray())
+                }
+            } catch (_: Exception) {}
+        }
+    }
+    val importConfigLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            try {
+                val json = context.contentResolver.openInputStream(uri)?.bufferedReader()?.readText() ?: ""
+                val ok = prefs.importSettingsFromJson(json)
+                if (ok) showImportConfigSuccess = true else showImportConfigError = true
+            } catch (_: Exception) { showImportConfigError = true }
+        }
+    }
+
     val folderPickerLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) {
             context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             prefs.autoBackupFolderUri = uri.toString(); folderUriString = uri.toString()
         }
     }
+
+    if (showImportConfigSuccess) {
+        AlertDialog(
+            onDismissRequest = { showImportConfigSuccess = false },
+            icon = { Icon(Icons.Rounded.CheckCircle, null, tint = Emerald500) },
+            title = { Text(stringResource(R.string.settings_import_config_success)) },
+            confirmButton = { TextButton(onClick = { showImportConfigSuccess = false }) { Text(stringResource(R.string.common_ok)) } }
+        )
+    }
+    if (showImportConfigError) {
+        AlertDialog(
+            onDismissRequest = { showImportConfigError = false },
+            icon = { Icon(Icons.Rounded.Error, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.settings_import_config_error)) },
+            confirmButton = { TextButton(onClick = { showImportConfigError = false }) { Text(stringResource(R.string.common_ok)) } }
+        )
+    }
+
     val intervalOptions = listOf(0 to stringResource(R.string.settings_auto_backup_off), 1 to stringResource(R.string.settings_auto_backup_daily), 7 to stringResource(R.string.settings_auto_backup_weekly), 30 to stringResource(R.string.settings_auto_backup_monthly))
     val folderLabel = folderUriString?.let { uriStr -> runCatching { Uri.parse(uriStr).lastPathSegment?.substringAfterLast(':') ?: uriStr }.getOrNull() } ?: stringResource(R.string.settings_auto_backup_folder_default)
+
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Spacer(Modifier.height(8.dp))
+
+        // ── Whitelist backup ─────────────────────────────────────────────────
         SettingsCard(icon = Icons.Rounded.Upload, title = stringResource(R.string.settings_export_title), subtitle = stringResource(R.string.settings_export_subtitle), onClick = { exportLauncher.launch(filename) })
         SettingsCard(icon = Icons.Rounded.Download, title = stringResource(R.string.settings_import_title), subtitle = stringResource(R.string.settings_import_subtitle), onClick = { importLauncher.launch(arrayOf("application/json")) }, isDestructive = true)
+
+        // ── Full app settings export/import ──────────────────────────────────
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Settings, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(stringResource(R.string.settings_export_config_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_export_config_subtitle), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = { exportConfigLauncher.launch(configFilename) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Rounded.FileUpload, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.settings_export_config_btn))
+                    }
+                    OutlinedButton(
+                        onClick = { importConfigLauncher.launch(arrayOf("application/json")) },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                    ) {
+                        Icon(Icons.Rounded.FileDownload, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(stringResource(R.string.settings_import_config_btn))
+                    }
+                }
+            }
+        }
+
+        // ── Auto backup ──────────────────────────────────────────────────────
         Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -703,11 +760,30 @@ private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, 
                 }
             }
         }
+
+        // ── Boot behaviour (moved from Boot tab) ─────────────────────────────
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.RestartAlt, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(stringResource(R.string.settings_boot_title), style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.settings_boot_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Switch(checked = reactivateOnBoot, onCheckedChange = { prefs.reactivateOnBoot = it; reactivateOnBoot = it })
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text(stringResource(R.string.settings_boot_info), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+
         Spacer(Modifier.height(16.dp))
     }
 }
 
-// ── Tab: Updates ──────────────────────────────────────────────────────────────
+// ── Tab: Updates // ── Tab: Updates ──────────────────────────────────────────────────────────────
 
 @Composable
 private fun UpdatesTab(context: Context) {

@@ -59,7 +59,7 @@ class UpdateCheckWorker(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(context.getString(R.string.update_dialog_title))
             .setContentText(
                 context.getString(R.string.update_notif_text, info.latestVersion)

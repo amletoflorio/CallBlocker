@@ -45,4 +45,12 @@ interface BlockedCallDao {
 
     @Query("DELETE FROM blocked_calls WHERE blockedAt < :beforeMs")
     suspend fun deleteOlderThan(beforeMs: Long)
+
+    /** Synchronous count — for use in AppWidgets (not in coroutines). */
+    @Query("SELECT COUNT(DISTINCT phoneNumber) FROM blocked_calls")
+    fun countBlockedSync(): Int
+
+    /** Returns the most recent blocked call entry, or null — for use in AppWidgets. */
+    @Query("SELECT * FROM blocked_calls ORDER BY blockedAt DESC LIMIT 1")
+    fun getLastBlockedSync(): BlockedCallEntity?
 }

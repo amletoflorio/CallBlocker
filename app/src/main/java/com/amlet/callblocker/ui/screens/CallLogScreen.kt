@@ -28,7 +28,8 @@ import java.util.*
 private data class BlockedNumberSummary(
     val phoneNumber: String,
     val latestAttempt: Long,
-    val totalAttempts: Int
+    val totalAttempts: Int,
+    val simSlot: String?         // most recent non-null simSlot for this number
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,9 +49,10 @@ fun CallLogScreen(
             .map { (number, calls) ->
                 val sorted = calls.sortedByDescending { it.blockedAt }
                 BlockedNumberSummary(
-                    phoneNumber = number,
+                    phoneNumber   = number,
                     latestAttempt = sorted.first().blockedAt,
-                    totalAttempts = calls.size
+                    totalAttempts = calls.size,
+                    simSlot       = sorted.firstOrNull { it.simSlot != null }?.simSlot
                 )
             }
             .sortedByDescending { it.latestAttempt }
@@ -223,7 +225,24 @@ private fun BlockedNumberCard(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-
+                    summary.simSlot?.let { sim ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            ) {
+                                Icon(Icons.Rounded.SimCard, null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(10.dp))
+                                Text(sim, style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                            }
+                        }
+                    }
                 }
             }
 

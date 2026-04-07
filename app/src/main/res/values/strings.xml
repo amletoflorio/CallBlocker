@@ -110,7 +110,7 @@
 
     <!-- Settings — Log retention -->
     <string name="settings_log_retention_title">Auto-clean log</string>
-    <string name="settings_log_retention_subtitle">Automatically delete blocked call records older than…</string>
+    <string name="settings_log_retention_subtitle">Automatically delete blocked call records older than:</string>
     <string name="settings_log_retention_never">Never</string>
     <string name="settings_log_retention_7d">7 days</string>
     <string name="settings_log_retention_30d">30 days</string>
@@ -125,7 +125,7 @@
 
     <!-- Settings — Boot tab -->
     <string name="settings_boot_title">Reactivate on boot</string>
-    <string name="settings_boot_subtitle">Show the permission dialog at boot to restore protection with a single tap</string>
+    <string name="settings_boot_subtitle">Reactivate the protection automatically on each boot.</string>
     <string name="settings_boot_info">Android does not allow apps to silently re-acquire the call screening role after a reboot. When enabled, CallBlocker will open the system permission dialog at boot so you only need to tap "Allow" to restore protection — without opening the app manually.</string>
 
     <!-- HomeScreen — SIM badge -->
@@ -279,6 +279,7 @@
     <!-- Common -->
     <string name="common_add">Add</string>
     <string name="common_cancel">Cancel</string>
+    <string name="common_ok">OK</string>
     <string name="common_back">Back</string>
     <string name="common_less">Less</string>
     <string name="common_more">More</string>
@@ -352,4 +353,35 @@
     <string name="changelog_1_7_0_6">Schedule: new tab to activate/deactivate blocking on a weekly timetable with exact alarms</string>
     <string name="changelog_1_7_0_7">Schedule: HomeScreen shows an explanatory banner when state was changed automatically</string>
     <string name="changelog_1_7_0_8">Per-feature SIM targeting: STIR/SHAKEN, dialed whitelist and schedule rules can each target SIM 1, SIM 2, or both</string>
+
+    <!-- Widget strings -->
+    <string name="widget_toggle_label">CallBlocker Toggle</string>
+    <string name="widget_toggle_description">Quick on/off toggle for call protection</string>
+    <string name="widget_status_label">CallBlocker Status</string>
+    <string name="widget_status_description">Shows protection status, whitelist count and last blocked call</string>
+    <string name="widget_status_active">Protected ✓</string>
+    <string name="widget_status_inactive">Unprotected</string>
+    <string name="widget_status_suspended">Suspended</string>
+    <string name="widget_contacts_label">Whitelist: %d contacts</string>
+    <string name="widget_no_blocked">No blocked calls yet</string>
+
+    <!-- Settings export/import -->
+    <string name="settings_export_config_title">Export all settings</string>
+    <string name="settings_export_config_btn">Export</string>
+    <string name="settings_import_config_btn">Import</string>
+    <string name="settings_export_config_subtitle">Save all app settings to a JSON file</string>
+    <string name="settings_import_config_title">Import all settings</string>
+    <string name="settings_import_config_subtitle">Restore all settings from a previously exported file</string>
+    <string name="settings_import_config_success">Settings imported successfully</string>
+    <string name="settings_import_config_error">Failed to import settings — invalid file</string>
+    <string name="settings_config_filename">callblocker_settings.json</string>
+
+    <!-- Changelog v1.8.0 -->
+    <string name="changelog_1_8_0_1">Home screen title redesigned: \'Call\' in white, \'Blocker\' in emerald green</string>
+    <string name="changelog_1_8_0_2">Toggle button now has a pulsing glow animation when protection is active</string>
+    <string name="changelog_1_8_0_3">Status banners (SIM, suspended, schedule) now animate in and out smoothly</string>
+    <string name="changelog_1_8_0_4">New home screen widgets: Toggle (2×1) and Status (2×2)</string>
+    <string name="changelog_1_8_0_5">Export/import all app settings as a single JSON file for full backup and restore</string>
+    <string name="changelog_1_8_0_6">Boot setting moved into Backup tab — settings are now organised more logically</string>
+    <string name="changelog_1_8_0_8">Fixed: notification icon now uses correct alpha-mask format on all Android versions</string>
 </resources>

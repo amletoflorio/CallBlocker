@@ -35,9 +35,12 @@ class AppPreferences(context: Context) {
     /**
      * Whether call blocking is active. True by default (existing behavior).
      */
+    // callProtectionEnabled is deprecated — the service now relies solely on isSuspended.
+    // Kept here to avoid breaking existing exports; always returns true.
+    @Deprecated("Use isSuspended instead")
     var callProtectionEnabled: Boolean
-        get() = prefs.getBoolean(KEY_CALL_PROTECTION_ENABLED, true)
-        set(value) = prefs.edit().putBoolean(KEY_CALL_PROTECTION_ENABLED, value).apply()
+        get() = true
+        set(value) { /* no-op */ }
 
     // ── Boot receiver ────────────────────────────────────────────────────────
 
@@ -236,6 +239,76 @@ class AppPreferences(context: Context) {
     var lastSettingsTab: Int
         get() = prefs.getInt(KEY_LAST_SETTINGS_TAB, 0)
         set(value) = prefs.edit().putInt(KEY_LAST_SETTINGS_TAB, value).apply()
+
+
+    // ── Full settings export / import ────────────────────────────────────────
+
+    /**
+     * Serialises all user-configurable settings to a JSON string for export.
+     */
+    fun exportSettingsAsJson(): String {
+        val sb = StringBuilder()
+        sb.append("{\n")
+        sb.append("  \"_version\": 1")
+        val exportKeys = listOf(
+            KEY_NOTIFY_ON_BLOCK, KEY_CALL_PROTECTION_ENABLED,
+            KEY_REACTIVATE_ON_BOOT, KEY_RETRY_RULE_ENABLED, KEY_RETRY_RULE_ATTEMPTS,
+            KEY_RETRY_RULE_WINDOW, KEY_AUTO_BACKUP_INTERVAL, KEY_AUTO_BACKUP_FOLDER_URI,
+            KEY_CHECK_UPDATES, KEY_NOTIFY_ON_UPDATE, KEY_PROTECTED_SIM,
+            KEY_APP_LANGUAGE, KEY_LOG_RETENTION_DAYS, KEY_SIM_ACCOUNT_MAP,
+            KEY_BLOCK_ON_VERIF_FAILED, KEY_STIR_SHAKEN_SIM_TARGET,
+            KEY_DIALED_WHITELIST_ENABLED, KEY_DIALED_WINDOW_HOURS,
+            KEY_DIALED_WHITELIST_SIM_TARGET, KEY_SCHEDULE_ENABLED
+        )
+        val all = prefs.all
+        for (key in exportKeys) {
+            val value = all[key] ?: continue
+            val jsonValue = when (value) {
+                is Boolean -> value.toString()
+                is Int     -> value.toString()
+                is Long    -> value.toString()
+                is String  -> "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\"" 
+                else       -> "\"$value\""
+            }
+            sb.append(",\n  \"$key\": $jsonValue")
+        }
+        sb.append("\n}")
+        return sb.toString()
+    }
+
+    /**
+     * Restores settings from a JSON string produced by [exportSettingsAsJson].
+     * Returns true on success, false on parse error.
+     */
+    fun importSettingsFromJson(json: String): Boolean {
+        return try {
+            val editor = prefs.edit()
+            val lines = json.trim().removePrefix("{").removeSuffix("}").lines()
+            for (line in lines) {
+                val trimmed = line.trim().trimEnd(',')
+                if (trimmed.isBlank()) continue
+                val colonIdx = trimmed.indexOf(':')
+                if (colonIdx < 0) continue
+                val rawKey = trimmed.substring(0, colonIdx).trim().trim('"')
+                val rawVal = trimmed.substring(colonIdx + 1).trim()
+                if (rawKey == "_version") continue
+                when {
+                    rawVal == "true"  -> editor.putBoolean(rawKey, true)
+                    rawVal == "false" -> editor.putBoolean(rawKey, false)
+                    rawVal.startsWith("\"") -> editor.putString(rawKey, rawVal.trim('"'))
+                    else -> rawVal.toLongOrNull()?.let { lv ->
+                        if (lv > Int.MAX_VALUE || lv < Int.MIN_VALUE) editor.putLong(rawKey, lv)
+                        else editor.putInt(rawKey, lv.toInt())
+                    }
+                }
+            }
+            editor.apply()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
 
     companion object {
         private const val PREF_NAME = "callblocker_prefs"

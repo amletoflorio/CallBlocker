@@ -109,7 +109,7 @@
 
     <!-- Settings — Log retention -->
     <string name="settings_log_retention_title">Pulizia automatica log</string>
-    <string name="settings_log_retention_subtitle">Elimina automaticamente i record più vecchi di…</string>
+    <string name="settings_log_retention_subtitle">Elimina automaticamente i record più vecchi di:</string>
     <string name="settings_log_retention_never">Mai</string>
     <string name="settings_log_retention_7d">7 giorni</string>
     <string name="settings_log_retention_30d">30 giorni</string>
@@ -124,7 +124,7 @@
 
     <!-- Settings — Boot tab -->
     <string name="settings_boot_title">Riattiva al riavvio</string>
-    <string name="settings_boot_subtitle">Mostra il dialog di autorizzazione all\'avvio per ripristinare la protezione con un tap</string>
+    <string name="settings_boot_subtitle">Riattiva automaticamente la protezione ad ogni riavvio del telefono.</string>
     <string name="settings_boot_info">Android non permette alle app di riacquisire silenziosamente il ruolo di screening al riavvio. Se abilitato, CallBlocker aprirà il dialog di autorizzazione di sistema all\'avvio: basterà toccare "Consenti" per ripristinare la protezione senza aprire l\'app manualmente.</string>
 
     <!-- HomeScreen — SIM badge -->
@@ -278,6 +278,7 @@
     <!-- Common -->
     <string name="common_add">Aggiungi</string>
     <string name="common_cancel">Annulla</string>
+    <string name="common_ok">OK</string>
     <string name="common_back">Indietro</string>
     <string name="common_less">Meno</string>
     <string name="common_more">Più</string>
@@ -351,4 +352,35 @@
     <string name="changelog_1_7_0_6">Pianificazione: nuovo tab per attivare/disattivare il blocco con orari settimanali e allarmi esatti</string>
     <string name="changelog_1_7_0_7">Pianificazione: la HomeScreen mostra un banner esplicativo quando lo stato cambia automaticamente</string>
     <string name="changelog_1_7_0_8">SIM per funzione: STIR/SHAKEN, whitelist chiamate e regole di pianificazione possono applicarsi a SIM 1, SIM 2 o entrambe</string>
+
+    <!-- Widget strings -->
+    <string name="widget_toggle_label">CallBlocker Toggle</string>
+    <string name="widget_toggle_description">Pulsante on/off rapido per la protezione chiamate</string>
+    <string name="widget_status_label">Stato CallBlocker</string>
+    <string name="widget_status_description">Mostra lo stato della protezione, i contatti in whitelist e l\'ultima chiamata bloccata</string>
+    <string name="widget_status_active">Protetto ✓</string>
+    <string name="widget_status_inactive">Non protetto</string>
+    <string name="widget_status_suspended">Sospeso</string>
+    <string name="widget_contacts_label">Whitelist: %d contatti</string>
+    <string name="widget_no_blocked">Nessuna chiamata bloccata</string>
+
+    <!-- Impostazioni esporta/importa -->
+    <string name="settings_export_config_title">Esporta tutte le impostazioni</string>
+    <string name="settings_export_config_btn">Esporta</string>
+    <string name="settings_import_config_btn">Importa</string>
+    <string name="settings_export_config_subtitle">Salva tutte le impostazioni dell\'app in un file JSON</string>
+    <string name="settings_import_config_title">Importa tutte le impostazioni</string>
+    <string name="settings_import_config_subtitle">Ripristina le impostazioni da un file esportato in precedenza</string>
+    <string name="settings_import_config_success">Impostazioni importate con successo</string>
+    <string name="settings_import_config_error">Impossibile importare le impostazioni — file non valido</string>
+    <string name="settings_config_filename">callblocker_settings.json</string>
+
+    <!-- Changelog v1.8.0 -->
+    <string name="changelog_1_8_0_1">Titolo in home ridisegnato: \'Call\' bianco, \'Blocker\' verde smeraldo</string>
+    <string name="changelog_1_8_0_2">Il pulsante toggle ora ha un\'animazione luminosa pulsante quando la protezione è attiva</string>
+    <string name="changelog_1_8_0_3">I banner di stato (SIM, sospensione, schedule) ora appaiono e scompaiono con animazione fluida</string>
+    <string name="changelog_1_8_0_4">Nuovi widget per la schermata home: Toggle (2×1) e Stato (2×2)</string>
+    <string name="changelog_1_8_0_5">Esporta/importa tutte le impostazioni in un unico file JSON per backup e ripristino completi</string>
+    <string name="changelog_1_8_0_6">Impostazione avvio spostata nel tab Backup — le impostazioni sono ora organizzate più logicamente</string>
+    <string name="changelog_1_8_0_8">Risolto: l\'icona notifiche usa ora il formato alpha-mask corretto su tutte le versioni Android</string>
 </resources>

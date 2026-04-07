@@ -64,6 +64,34 @@
             </intent-filter>
         </receiver>
 
+
+        <!-- Toggle Widget (2x1) — quick on/off button -->
+        <receiver
+            android:name=".widget.ToggleWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_toggle_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+                <action android:name="com.amlet.callblocker.widget.ACTION_TOGGLE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/toggle_widget_info" />
+        </receiver>
+
+        <!-- Status Widget (2x2) — informational protection status -->
+        <receiver
+            android:name=".widget.StatusWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_status_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/status_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

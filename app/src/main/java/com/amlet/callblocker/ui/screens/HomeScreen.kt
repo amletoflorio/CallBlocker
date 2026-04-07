@@ -2,9 +2,10 @@ package com.amlet.callblocker.ui.screens
 
 import android.content.Context
 import android.telephony.SubscriptionManager
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -57,11 +59,9 @@ fun HomeScreen(
     }
     val protectedSim by remember { mutableStateOf(prefs.protectedSim) }
 
-    // Schedule state — read from prefs and refresh on each recomposition
     var scheduleLabel by remember { mutableStateOf(prefs.scheduleActiveLabel) }
     var showScheduleOverrideDialog by remember { mutableStateOf(false) }
 
-    // Refresh scheduleLabel whenever isServiceEnabled changes (alarm may have fired)
     LaunchedEffect(isServiceEnabled) { scheduleLabel = prefs.scheduleActiveLabel }
 
     if (showScheduleOverrideDialog) {
@@ -85,7 +85,6 @@ fun HomeScreen(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
 
-    // Wrap toggle: if schedule is active, show override dialog instead of directly toggling
     val handleToggle: () -> Unit = {
         if (prefs.scheduleEnabled && scheduleLabel.isNotEmpty()) {
             showScheduleOverrideDialog = true
@@ -169,19 +168,37 @@ private fun PortraitHomeLayout(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (isDualSim && isServiceEnabled) {
-            SimProtectionBadge(protectedSim = protectedSim)
-            Spacer(modifier = Modifier.height(8.dp))
+        AnimatedVisibility(
+            visible = isDualSim && isServiceEnabled,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                SimProtectionBadge(protectedSim = protectedSim)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
-        if (suspendUntil > 0L) {
-            SuspendedBanner(suspendUntil = suspendUntil)
-            Spacer(modifier = Modifier.height(8.dp))
+        AnimatedVisibility(
+            visible = suspendUntil > 0L,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                SuspendedBanner(suspendUntil = suspendUntil)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
-        if (scheduleLabel.isNotEmpty()) {
-            ScheduleActiveBanner(label = scheduleLabel)
-            Spacer(modifier = Modifier.height(8.dp))
+        AnimatedVisibility(
+            visible = scheduleLabel.isNotEmpty(),
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Column {
+                ScheduleActiveBanner(label = scheduleLabel)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -260,12 +277,23 @@ private fun HomeHeader(onNavigateToSettings: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.displayLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.ExtraBold
-            )
+            // "Call" in white, "Blocker" in emerald green
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    text = "Call",
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.5).sp,
+                    color = MaterialTheme.colorScheme.onBackground
+                )
+                Text(
+                    text = "Blocker",
+                    fontSize = 34.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.5).sp,
+                    color = Emerald500
+                )
+            }
             Text(
                 text = stringResource(R.string.app_tagline),
                 style = MaterialTheme.typography.bodyMedium,
@@ -288,40 +316,88 @@ private fun HomeToggleCircle(
     statusColor: androidx.compose.ui.graphics.Color,
     onToggleService: () -> Unit
 ) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(160.dp)
-            .clip(CircleShape)
-            .background(
-                if (isServiceEnabled)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.surfaceVariant
+    // Pulsing ring animation when active
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = if (isServiceEnabled) 1.08f else 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = if (isServiceEnabled) 0.15f else 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = EaseInOutSine),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
+    // Toggle press scale
+    val pressScale by animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "pressScale"
+    )
+
+    Box(contentAlignment = Alignment.Center) {
+        // Outer pulsing ring
+        if (isServiceEnabled) {
+            Box(
+                modifier = Modifier
+                    .size(184.dp)
+                    .scale(pulseScale)
+                    .clip(CircleShape)
+                    .background(Emerald500.copy(alpha = pulseAlpha))
             )
-    ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Switch(
-                checked = isServiceEnabled,
-                onCheckedChange = { onToggleService() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.background,
-                    checkedTrackColor = Emerald500,
-                    uncheckedThumbColor = Slate400,
-                    uncheckedTrackColor = Slate700
+        }
+        // Main circle
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(160.dp)
+                .scale(pressScale)
+                .clip(CircleShape)
+                .background(
+                    if (isServiceEnabled)
+                        MaterialTheme.colorScheme.primaryContainer
+                    else
+                        MaterialTheme.colorScheme.surfaceVariant
                 )
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = if (isServiceEnabled)
-                    stringResource(R.string.home_status_active)
-                else
-                    stringResource(R.string.home_status_inactive),
-                color = statusColor,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
+                .then(
+                    if (isServiceEnabled)
+                        Modifier.border(2.dp, Emerald500.copy(alpha = 0.6f), CircleShape)
+                    else
+                        Modifier
+                )
+        ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Switch(
+                    checked = isServiceEnabled,
+                    onCheckedChange = { onToggleService() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = MaterialTheme.colorScheme.background,
+                        checkedTrackColor = Emerald500,
+                        uncheckedThumbColor = Slate400,
+                        uncheckedTrackColor = Slate700
+                    )
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (isServiceEnabled)
+                        stringResource(R.string.home_status_active)
+                    else
+                        stringResource(R.string.home_status_inactive),
+                    color = statusColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+            }
         }
     }
 }

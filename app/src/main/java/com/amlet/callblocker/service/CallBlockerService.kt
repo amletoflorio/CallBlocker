@@ -24,6 +24,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import com.amlet.callblocker.util.NotificationHelper
 
 class CallBlockerService : CallScreeningService() {
 
@@ -67,10 +68,6 @@ class CallBlockerService : CallScreeningService() {
             when {
                 prefs.isSuspended -> {
                     android.util.Log.d("CallBlocker", "Protection suspended → ALLOW")
-                    buildAllowResponse()
-                }
-                !prefs.callProtectionEnabled -> {
-                    android.util.Log.d("CallBlocker", "Call protection OFF → ALLOW")
                     buildAllowResponse()
                 }
                 rawNumber.isNullOrBlank() -> {
@@ -269,8 +266,9 @@ class CallBlockerService : CallScreeningService() {
                         // Strategy A: resolve via subId directly (works on stock Android).
                         if (subId > 0 && subId < 99999) {
                             val slot = resolveSlotFromSubId(subId)
+                                ?: resolveSlotFromSubId(Math.abs(subId))
                             if (slot != null) {
-                                android.util.Log.d("CallBlocker", "Resolved $slot via CallLog subId=$subId")
+                                android.util.Log.d("CallBlocker", "Resolved $slot via CallLog subId=$subId (abs=${Math.abs(subId)})")
                                 return@use slot
                             }
                         }
@@ -281,6 +279,17 @@ class CallBlockerService : CallScreeningService() {
                             if (slot != null) return@use slot
                         }
 
+                        // Strategy 3 (MIUI last resort): if we have seen exactly 2
+                        // distinct accountIds across all calls and one maps to a known slot,
+                        // the other must be the remaining slot.
+                        val userMap = prefs.getSimAccountMap()
+                        if (userMap.size == 1 && accountId.isNotBlank() && !userMap.containsKey(accountId)) {
+                            val knownSlot = userMap.values.first()
+                            val deducedSlot = if (knownSlot == "SIM1") "SIM2" else "SIM1"
+                            android.util.Log.d("CallBlocker",
+                                "Resolved $deducedSlot via S3 deduction (other SIM is $knownSlot)")
+                            return@use deducedSlot
+                        }
                         android.util.Log.w("CallBlocker", "CallLog: could not resolve SIM (accountId='$accountId' subId=$subId)")
                         return@use null
                     }
@@ -606,7 +615,7 @@ class CallBlockerService : CallScreeningService() {
             number.hashCode(),
             NotificationCompat.Builder(this, AppPreferences.NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setLargeIcon(notifLargeIcon())
+                .setLargeIcon(NotificationHelper.getLargeIcon(this))
                 .setColor(0xFF10B981.toInt())
                 .setContentTitle(getString(R.string.notif_blocked_title))
                 .setContentText(number)
@@ -631,7 +640,7 @@ class CallBlockerService : CallScreeningService() {
             NOTIF_ID_RETRY_RULE,
             NotificationCompat.Builder(this, CHANNEL_RETRY_RULE)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setLargeIcon(notifLargeIcon())
+                .setLargeIcon(NotificationHelper.getLargeIcon(this))
                 .setColor(0xFF10B981.toInt())
                 .setContentTitle(getString(R.string.notif_retry_rule_title))
                 .setContentText(getString(R.string.notif_retry_rule_text, number, attempts, windowMinutes))
@@ -658,7 +667,9 @@ class CallBlockerService : CallScreeningService() {
      * READ_CALL_LOG permission is already declared and granted.
      */
     private fun buildSimMapFromCallLog() {
-        if (prefs.simMapAutoBuilt) return
+        // Re-run if the map is empty even if previously marked as built,
+        // so that a fix to the resolution logic takes effect automatically.
+        if (prefs.simMapAutoBuilt && prefs.getSimAccountMap().isNotEmpty()) return
 
         try {
             val sm   = getSystemService(SubscriptionManager::class.java)
@@ -693,22 +704,60 @@ class CallBlockerService : CallScreeningService() {
                 return
             }
 
-            val discovered = mutableMapOf<String, String>()   // accountId → slot
+            // accountId → set of subIds seen in CallLog for this accountId
+            val accountSubIds = mutableMapOf<String, MutableSet<Int>>()
             cursor.use { c ->
                 val idxAccId = c.getColumnIndex(CallLog.Calls.PHONE_ACCOUNT_ID)
                 val idxSubId = c.getColumnIndex("subscription_id")
                 while (c.moveToNext()) {
                     val accountId = if (idxAccId >= 0) c.getString(idxAccId)?.trim() ?: "" else ""
-                    val subId     = if (idxSubId >= 0) c.getInt(idxSubId) else -1
-                    if (accountId.isBlank() || subId < 0 || subId > 99999) continue
-                    val slot = subIdToSlot[subId] ?: continue
-                    if (!discovered.containsKey(accountId)) {
-                        discovered[accountId] = slot
+                    val subId     = if (idxSubId >= 0) c.getInt(idxSubId) else Int.MIN_VALUE
+                    if (accountId.isBlank() || subId == Int.MIN_VALUE) continue
+                    accountSubIds.getOrPut(accountId) { mutableSetOf() }.add(subId)
+                    // Collect up to 200 rows then stop
+                }
+            }
+            android.util.Log.d("CallBlocker", "buildSimMap: accountSubIds=$accountSubIds")
+
+            val discovered = mutableMapOf<String, String>()
+
+            // Strategy 1: direct subId match (works on stock Android)
+            for ((accId, subIds) in accountSubIds) {
+                for (sid in subIds) {
+                    val slot = subIdToSlot[sid] ?: subIdToSlot[Math.abs(sid)]
+                    if (slot != null && !discovered.containsKey(accId)) {
+                        discovered[accId] = slot
                         android.util.Log.d("CallBlocker",
-                            "buildSimMap: found accountId='$accountId' → $slot (subId=$subId)")
+                            "buildSimMap: S1 accountId='$accId' → $slot (subId=$sid)")
+                        break
                     }
-                    // Stop once we have a mapping for every known SIM slot.
-                    if (discovered.values.toSet().size == subs.size) break
+                }
+            }
+
+            // Strategy 2: MIUI fallback — iccId is empty so we can't match by ICCID.
+            // Instead, order the discovered accountIds by their representative subId
+            // (using abs value for consistent ordering) and map to slots by slot index order.
+            // On MIUI each SIM's CallLog subId is a large negative unique to that SIM;
+            // the subscription with lower simSlotIndex has the lower abs(subId) in practice.
+            if (discovered.size < subs.size && accountSubIds.size >= subs.size) {
+                val unmapped = accountSubIds.keys.filter { !discovered.containsKey(it) }
+                // Sort unmapped accountIds by their minimum subId (MIUI: consistent per SIM)
+                val sortedUnmapped = unmapped.sortedBy { accId ->
+                    accountSubIds[accId]?.minOrNull() ?: Int.MIN_VALUE
+                }
+                // Sort subs by simSlotIndex
+                val sortedSubs = subs.sortedBy { it.simSlotIndex }
+                // Map in order: first unmapped accountId → first unassigned slot
+                val assignedSlots = discovered.values.toSet()
+                val unassignedSubs = sortedSubs.filter {
+                    val slot = if (it.simSlotIndex == 0) "SIM1" else "SIM2"
+                    slot !in assignedSlots
+                }
+                sortedUnmapped.zip(unassignedSubs).forEach { (accId, sub) ->
+                    val slot = if (sub.simSlotIndex == 0) "SIM1" else "SIM2"
+                    discovered[accId] = slot
+                    android.util.Log.d("CallBlocker",
+                        "buildSimMap: S2(MIUI) accountId='$accId' → $slot (ordered fallback)")
                 }
             }
 
@@ -740,24 +789,7 @@ class CallBlockerService : CallScreeningService() {
         }
     }
 
-
-    /**
-     * Returns a Bitmap version of ic_notification tinted with the app accent colour.
-     * Used as large icon so the expanded notification matches the small icon in the
-     * status bar — preventing Android from falling back to the launcher icon.
-     */
-    private fun notifLargeIcon(): android.graphics.Bitmap {
-        val size = (48 * resources.displayMetrics.density).toInt()
-        val bmp = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bmp)
-        val drawable = androidx.core.content.ContextCompat.getDrawable(this, R.drawable.ic_notification)!!
-        drawable.setBounds(0, 0, size, size)
-        androidx.core.graphics.drawable.DrawableCompat.setTint(drawable, 0xFF10B981.toInt())
-        drawable.draw(canvas)
-        return bmp
-    }
-
-        companion object {
+    companion object {
         private const val CHANNEL_RETRY_RULE  = "retry_rule_alerts"
         private const val NOTIF_ID_RETRY_RULE = 3001
     }
