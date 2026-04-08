@@ -41,6 +41,7 @@ fun AppNavigation(
     val uiState by viewModel.uiState.collectAsState()
     val filteredContacts by viewModel.filteredContacts.collectAsState()
     val blockedCalls by viewModel.blockedCalls.collectAsState()
+    val categories by viewModel.categories.collectAsState()
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -121,6 +122,9 @@ fun AppNavigation(
             composable(Routes.CONTACTS) {
                 ContactListScreen(
                     contacts = filteredContacts,
+                    categories = categories,
+                    categoryFilter = uiState.categoryFilter,
+                    onCategoryFilterChange = viewModel::setCategoryFilter,
                     searchQuery = uiState.searchQuery,
                     onSearchQueryChange = viewModel::updateSearchQuery,
                     onDeleteContact = viewModel::deleteContact,
@@ -134,7 +138,13 @@ fun AppNavigation(
 
             composable(Routes.ADD_CONTACT) {
                 AddContactScreen(
-                    onSave = viewModel::addContact,
+                    categories = categories,
+                    onSave = { name, phone, notes, categoryId ->
+                        viewModel.addContact(name, phone, notes, categoryId)
+                    },
+                    onCreateCategory = { name, emoji, onResult ->
+                        viewModel.addCategory(name, emoji, onResult)
+                    },
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
@@ -147,7 +157,11 @@ fun AppNavigation(
                 if (contact != null) {
                     EditContactScreen(
                         contact = contact,
+                        categories = categories,
                         onSave = viewModel::updateContact,
+                        onCreateCategory = { name, emoji, onResult ->
+                            viewModel.addCategory(name, emoji, onResult)
+                        },
                         onNavigateBack = { navController.popBackStack() }
                     )
                 } else {

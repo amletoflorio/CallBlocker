@@ -14,6 +14,10 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_NOTIFY_ON_BLOCK, false)
         set(value) = prefs.edit().putBoolean(KEY_NOTIFY_ON_BLOCK, value).apply()
 
+    var notifyOnWhitelistCall: Boolean
+        get() = prefs.getBoolean(KEY_NOTIFY_ON_WHITELIST_CALL, false)
+        set(value) = prefs.edit().putBoolean(KEY_NOTIFY_ON_WHITELIST_CALL, value).apply()
+
     // ── Protection suspension ────────────────────────────────────────────────
 
     /** Unix timestamp (ms) until which protection is suspended. 0L = active (no suspension). */
@@ -251,7 +255,7 @@ class AppPreferences(context: Context) {
         sb.append("{\n")
         sb.append("  \"_version\": 1")
         val exportKeys = listOf(
-            KEY_NOTIFY_ON_BLOCK, KEY_CALL_PROTECTION_ENABLED,
+            KEY_NOTIFY_ON_BLOCK, KEY_NOTIFY_ON_WHITELIST_CALL, KEY_CALL_PROTECTION_ENABLED,
             KEY_REACTIVATE_ON_BOOT, KEY_RETRY_RULE_ENABLED, KEY_RETRY_RULE_ATTEMPTS,
             KEY_RETRY_RULE_WINDOW, KEY_AUTO_BACKUP_INTERVAL, KEY_AUTO_BACKUP_FOLDER_URI,
             KEY_CHECK_UPDATES, KEY_NOTIFY_ON_UPDATE, KEY_PROTECTED_SIM,
@@ -314,6 +318,7 @@ class AppPreferences(context: Context) {
         private const val PREF_NAME = "callblocker_prefs"
 
         private const val KEY_NOTIFY_ON_BLOCK            = "notify_on_block"
+        private const val KEY_NOTIFY_ON_WHITELIST_CALL   = "notify_on_whitelist_call"
         private const val KEY_SUSPEND_UNTIL              = "suspend_until"
         private const val KEY_CALL_PROTECTION_ENABLED    = "call_protection_enabled"
         private const val KEY_REACTIVATE_ON_BOOT         = "reactivate_on_boot"

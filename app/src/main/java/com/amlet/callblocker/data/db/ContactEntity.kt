@@ -32,7 +32,16 @@ data class ContactEntity(
      * Once expired the number will be blocked again.
      * Shown with a visual badge in the whitelist UI.
      */
-    val expiresAt: Long? = null
+    val expiresAt: Long? = null,
+
+    /**
+     * Optional foreign key referencing [CategoryEntity.id].
+     * Null means the contact has no category assigned.
+     * The reference is stored as a plain Int (no Room FK constraint) so that
+     * deleting a category does not cascade-delete its contacts; instead the
+     * UI resets this field to null when a category is removed.
+     */
+    val categoryId: Int? = null
 ) {
     /** True if this is a temporary entry that has not yet expired. */
     val isTemporary: Boolean

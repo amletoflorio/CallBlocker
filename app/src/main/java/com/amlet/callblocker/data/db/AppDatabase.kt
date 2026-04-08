@@ -8,8 +8,8 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [ContactEntity::class, BlockedCallEntity::class, ScheduleRuleEntity::class],
-    version = 10,
+    entities = [ContactEntity::class, BlockedCallEntity::class, ScheduleRuleEntity::class, CategoryEntity::class],
+    version = 12,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -17,6 +17,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun contactDao(): ContactDao
     abstract fun blockedCallDao(): BlockedCallDao
     abstract fun scheduleRuleDao(): ScheduleRuleDao
+    abstract fun categoryDao(): CategoryDao
 
     companion object {
         @Volatile
@@ -63,18 +64,18 @@ abstract class AppDatabase : RoomDatabase() {
         }
 
         /**
-         * v6 → v7: ricrea blocked_calls con la struttura finale attesa da Room.
+         * v6 → v7: recreates blocked_calls with the exact schema Room expects.
          *
-         * Il problema: ALTER TABLE ADD COLUMN lascia un DEFAULT fisso nel
-         * catalogo SQLite (es. DEFAULT 'incoming', DEFAULT NULL) che Room
-         * confronta come stringa e trova diverso da 'undefined'.
-         * L'unico modo per eliminare i DEFAULT è ricreare la tabella.
+         * Problem: ALTER TABLE ADD COLUMN leaves a fixed DEFAULT in the SQLite
+         * catalogue (e.g. DEFAULT 'incoming', DEFAULT NULL) that Room compares as
+         * a string and finds different from 'undefined'. The only way to remove
+         * those DEFAULT markers is to recreate the table from scratch.
          */
         private val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // 1. Crea la nuova tabella con la struttura esatta che Room si aspetta
-                //    (nessun DEFAULT sulle colonne nullable, isSmsBlocked NOT NULL senza default
-                //     esplicito nel catalogo → Room lo vede come 'undefined').
+                // 1. Create the new table with the exact structure Room expects
+                //    (no DEFAULT on nullable columns; isSmsBlocked NOT NULL without an explicit
+                //     default in the catalogue → Room sees it as 'undefined').
                 db.execSQL("""
                     CREATE TABLE IF NOT EXISTS blocked_calls_new (
                         id               INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -89,7 +90,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 """.trimIndent())
 
-                // 2. Copia i dati esistenti, fornendo valori di default per le colonne nuove
+                // 2. Copy existing rows, supplying default values for the new columns.
                 db.execSQL("""
                     INSERT INTO blocked_calls_new
                         (id, phoneNumber, blockedAt, simSlot, callDirection, accountHandleId,
@@ -100,27 +101,27 @@ abstract class AppDatabase : RoomDatabase() {
                     FROM blocked_calls
                 """.trimIndent())
 
-                // 3. Elimina la vecchia tabella e rinomina la nuova
+                // 3. Drop the old table and rename the new one.
                 db.execSQL("DROP TABLE blocked_calls")
                 db.execSQL("ALTER TABLE blocked_calls_new RENAME TO blocked_calls")
             }
         }
 
         /**
-         * v7 → v8: nessuna modifica strutturale necessaria — le colonne callType,
-         * isSmsBlocked e smsBodySnippet sono già state create nella migration 6→7.
-         * Questa migration è un no-op che serve solo ad allineare il numero di versione.
+         * v7 → v8: no structural changes needed — callType, isSmsBlocked and
+         * smsBodySnippet were already created in migration 6→7.
+         * This is a no-op migration that only bumps the version number.
          */
         private val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
-                // no-op: struttura già corretta dalla migration 6→7
+                // no-op: schema is already correct after migration 6→7
             }
         }
 
         /**
-         * v8 → v9: rimuove le colonne isSmsBlocked e smsBodySnippet dalla tabella
-         * blocked_calls, non più necessarie ora che la protezione SMS è stata rimossa.
-         * SQLite non supporta DROP COLUMN (pre-3.35.0), quindi si ricrea la tabella.
+         * v8 → v9: removes the isSmsBlocked and smsBodySnippet columns from
+         * blocked_calls, no longer needed since SMS protection was removed.
+         * SQLite does not support DROP COLUMN (pre-3.35.0), so the table is recreated.
          */
         private val MIGRATION_8_9 = object : Migration(8, 9) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -171,6 +172,40 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v10 → v11:
+         * - Creates the contact_categories table.
+         * - Adds categoryId to allowed_contacts (nullable, no FK constraint).
+         * - Adds targetType and targetId to schedule_rules for per-category / per-contact scheduling.
+         */
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // New table: contact categories
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS contact_categories (
+                        id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        name      TEXT    NOT NULL,
+                        emoji     TEXT    NOT NULL DEFAULT '',
+                        createdAt INTEGER NOT NULL
+                    )
+                """.trimIndent())
+
+                // Allow contacts to reference a category
+                db.execSQL("ALTER TABLE allowed_contacts ADD COLUMN categoryId INTEGER DEFAULT NULL")
+
+                // Schedule rules can now target a specific category or contact
+                db.execSQL("ALTER TABLE schedule_rules ADD COLUMN targetType TEXT NOT NULL DEFAULT 'all'")
+                db.execSQL("ALTER TABLE schedule_rules ADD COLUMN targetId INTEGER DEFAULT NULL")
+            }
+        }
+
+        /** v11 → v12: adds optional user-defined name to schedule rules. */
+        private val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE schedule_rules ADD COLUMN name TEXT DEFAULT NULL")
+            }
+        }
+
         fun getInstance(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -186,7 +221,9 @@ abstract class AppDatabase : RoomDatabase() {
                         MIGRATION_6_7,
                         MIGRATION_7_8,
                         MIGRATION_8_9,
-                        MIGRATION_9_10
+                        MIGRATION_9_10,
+                        MIGRATION_10_11,
+                        MIGRATION_11_12
                     )
                     .build()
                     .also { INSTANCE = it }

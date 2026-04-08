@@ -36,7 +36,30 @@ data class ScheduleRuleEntity(
     val enabled: Boolean = true,
 
     /** "sim1", "sim2", or "both" */
-    val simTarget: String = "both"
+    val simTarget: String = "both",
+
+    /**
+     * Determines which contacts this rule applies to.
+     *
+     * - [TARGET_ALL]      – the rule affects the global protection toggle (default behaviour).
+     * - [TARGET_CATEGORY] – the rule activates/deactivates protection only for a specific
+     *                       category; [targetId] holds the [CategoryEntity.id].
+     * - [TARGET_CONTACT]  – the rule activates/deactivates protection only for a single
+     *                       contact; [targetId] holds the [ContactEntity.id].
+     */
+    val targetType: String = TARGET_ALL,
+
+    /**
+     * The ID of the targeted category or contact when [targetType] is not [TARGET_ALL].
+     * Null when [targetType] is [TARGET_ALL].
+     */
+    val targetId: Int? = null,
+
+    /**
+     * Optional user-defined name for this rule (e.g. "Night mode", "Weekend").
+     * Null or blank means no custom label is shown.
+     */
+    val name: String? = null
 ) {
     /** Returns [days] as a sorted list of ints (1–7). */
     fun dayList(): List<Int> =
@@ -45,5 +68,14 @@ data class ScheduleRuleEntity(
     companion object {
         const val MODE_ACTIVATE   = "activate"
         const val MODE_DEACTIVATE = "deactivate"
+
+        /** Rule applies to the global protection state (default). */
+        const val TARGET_ALL      = "all"
+
+        /** Rule applies only to contacts belonging to a specific category. */
+        const val TARGET_CATEGORY = "category"
+
+        /** Rule applies only to a single whitelist contact. */
+        const val TARGET_CONTACT  = "contact"
     }
 }

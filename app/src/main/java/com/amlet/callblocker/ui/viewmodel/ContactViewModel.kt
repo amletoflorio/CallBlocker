@@ -9,8 +9,10 @@ import com.amlet.callblocker.CallBlockerApp
 import com.amlet.callblocker.R
 import com.amlet.callblocker.data.backup.BackupManager
 import com.amlet.callblocker.data.db.BlockedCallEntity
+import com.amlet.callblocker.data.db.CategoryEntity
 import com.amlet.callblocker.data.db.ContactEntity
 import com.amlet.callblocker.data.prefs.AppPreferences
+import com.amlet.callblocker.data.repository.CategoryRepository
 import com.amlet.callblocker.data.repository.ContactRepository
 import com.amlet.callblocker.util.PhoneUtils
 import kotlinx.coroutines.flow.*
@@ -22,12 +24,14 @@ data class UiState(
     val blockedCount: Int = 0,
     val isLoading: Boolean = false,
     val searchQuery: String = "",
+    val categoryFilter: Int? = null,  // null = show all categories
     val snackbarMessage: String? = null
 )
 
 class ContactViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repository: ContactRepository
+    private val categoryRepository: CategoryRepository
     private val db = (app as CallBlockerApp).database
 
     private val _uiState = MutableStateFlow(UiState())
@@ -35,23 +39,37 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
 
     val filteredContacts: StateFlow<List<ContactEntity>>
 
+    /** Live stream of all categories, used by Add/Edit contact screens and filter chips. */
+    val categories: StateFlow<List<CategoryEntity>>
+
     val blockedCalls: StateFlow<List<BlockedCallEntity>> =
         db.blockedCallDao().getAllBlocked()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         repository = ContactRepository(db.contactDao())
+        categoryRepository = CategoryRepository(db.categoryDao(), db.contactDao())
+
+        categories = categoryRepository.allCategories
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         filteredContacts = combine(
             repository.allContacts,
-            _uiState.map { it.searchQuery }
-        ) { contacts, query ->
-            if (query.isBlank()) contacts
-            else contacts.filter { contact ->
-                contact.name.contains(query, ignoreCase = true) ||
-                        contact.phoneNumber.contains(query) ||
-                        contact.notes.contains(query, ignoreCase = true)
-            }
+            _uiState.map { it.searchQuery },
+            _uiState.map { it.categoryFilter }
+        ) { contacts, query, catFilter ->
+            contacts
+                .filter { contact ->
+                    // Category filter
+                    catFilter == null || contact.categoryId == catFilter
+                }
+                .filter { contact ->
+                    // Text search filter
+                    if (query.isBlank()) true
+                    else contact.name.contains(query, ignoreCase = true) ||
+                            contact.phoneNumber.contains(query) ||
+                            contact.notes.contains(query, ignoreCase = true)
+                }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
         viewModelScope.launch {
@@ -67,10 +85,10 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun addContact(name: String, phoneNumber: String, notes: String) {
+    fun addContact(name: String, phoneNumber: String, notes: String, categoryId: Int? = null) {
         viewModelScope.launch {
             try {
-                repository.addContact(name, phoneNumber, notes)
+                repository.addContact(name, phoneNumber, notes, categoryId)
                 showSnackbar(getApplication<Application>().getString(R.string.msg_contact_added))
             } catch (e: Exception) {
                 showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
@@ -121,10 +139,6 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /**
-     * Adds [phoneNumber] directly to the whitelist with an auto-generated name.
-     * Used by the "Add to whitelist" quick-action on the call detail screen.
-     */
-    /**
      * Adds [phoneNumber] to the whitelist with a user-supplied name and optional notes.
      * Called from the "Add to whitelist" dialog on the call detail screen.
      */
@@ -147,6 +161,59 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+
+    // ── Category management ───────────────────────────────────────────────────
+
+    /** Creates a new category and returns its generated ID, or -1 on failure. */
+    fun addCategory(name: String, emoji: String = "", onResult: (Long) -> Unit = {}) {
+        viewModelScope.launch {
+            try {
+                val id = categoryRepository.addCategory(name, emoji)
+                showSnackbar(getApplication<Application>().getString(R.string.msg_category_added))
+                onResult(id)
+            } catch (e: Exception) {
+                showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
+                onResult(-1)
+            }
+        }
+    }
+
+    fun updateCategory(category: CategoryEntity) {
+        viewModelScope.launch {
+            try {
+                categoryRepository.updateCategory(category)
+                showSnackbar(getApplication<Application>().getString(R.string.msg_category_updated))
+            } catch (e: Exception) {
+                showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
+            }
+        }
+    }
+
+    /**
+     * Deletes a category and clears the reference from all contacts that were
+     * assigned to it. Contacts themselves are NOT deleted.
+     */
+    fun deleteCategory(category: CategoryEntity) {
+        viewModelScope.launch {
+            try {
+                categoryRepository.deleteCategory(category)
+                // If the deleted category was the active filter, reset it.
+                if (_uiState.value.categoryFilter == category.id) {
+                    _uiState.update { it.copy(categoryFilter = null) }
+                }
+                showSnackbar(getApplication<Application>().getString(R.string.msg_category_deleted, category.name))
+            } catch (e: Exception) {
+                showSnackbar(getApplication<Application>().getString(R.string.msg_generic_error, e.message))
+            }
+        }
+    }
+
+    /** Sets the active category filter for the contact list. Null shows all contacts. */
+    fun setCategoryFilter(categoryId: Int?) {
+        _uiState.update { it.copy(categoryFilter = categoryId) }
+    }
+
+    // ── Call log / whitelist helpers ──────────────────────────────────────────
 
     /** Returns a cold flow of all blocked call attempts for the given number. */
     fun callsForNumber(number: String): Flow<List<BlockedCallEntity>> =
@@ -202,3 +269,4 @@ class ContactViewModel(app: Application) : AndroidViewModel(app) {
         _uiState.update { it.copy(snackbarMessage = message) }
     }
 }
+

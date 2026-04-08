@@ -54,7 +54,7 @@ class MainActivity : ComponentActivity() {
         checkRoleStatus()
 
         // Lanciato da BootReceiver dopo il riavvio: apri subito il dialog del ruolo.
-        // Controlliamo sia qui (onCreate) sia in onNewIntent (se l'Activity era già viva).
+        // Checked here (onCreate) and again in onNewIntent (if the Activity was already alive).
         if (intent.getBooleanExtra(EXTRA_REQUEST_ROLE_ON_LAUNCH, false)) {
             requestRole()
         }
@@ -73,7 +73,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
-        // Gestisce il caso in cui MainActivity fosse già in memoria al boot.
+        // Handles the case where MainActivity was already in memory at boot.
         if (intent.getBooleanExtra(EXTRA_REQUEST_ROLE_ON_LAUNCH, false)) {
             requestRole()
         }

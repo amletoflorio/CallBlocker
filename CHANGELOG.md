@@ -4,7 +4,34 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.8.0] - Latest
+## [v1.8.1] - Latest
+
+### New Features
+
+#### Whitelist categories
+- Whitelist contacts can now be assigned to categories (e.g. Family, Work, Couriers)
+- Categories can be created on the fly from the Add/Edit contact screen
+- New **Whitelist tab** in Settings for managing categories
+- Contact list can be filtered by category using chip filters
+
+#### Schedule improvements
+- Scheduling rules can now target a specific category or contact instead of the global toggle
+- Scheduling rules can now have a custom name (e.g. "Night mode", "Weekend")
+
+#### Whitelist call notifications
+- **New toggle in Settings → Notifications** — "Notify whitelist calls": when enabled, the app fires a high-priority notification the moment an incoming call matches a whitelisted number
+- The notification displays the **name saved in the whitelist** (e.g. "Dentista", "BRT courier") rather than just the raw number, so you immediately know who is calling even without a phonebook entry
+- The feature is **off by default** and fully independent from the existing "Notify blocked calls" toggle
+- A dedicated notification channel ("Whitelist calls") is registered at IMPORTANCE_HIGH so the alert appears as a heads-up banner on the lock screen
+
+### Configuration
+- Added `notifyOnWhitelistCall` preference key (`notify_on_whitelist_call`)
+- Added `CHANNEL_WHITELIST_CALL` channel in `NotificationHelper` and registered in `CallBlockerService.createNotificationChannel()`
+- Bump `versionCode` to 9, `versionName` to `1.8.1`
+
+---
+
+## [v1.8.0]
 
 ### New Features
 

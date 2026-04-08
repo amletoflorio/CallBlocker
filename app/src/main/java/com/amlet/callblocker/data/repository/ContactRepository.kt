@@ -12,13 +12,14 @@ class ContactRepository(private val dao: ContactDao) {
 
     val contactCount: Flow<Int> = dao.getContactCount()
 
-    suspend fun addContact(name: String, phoneNumber: String, notes: String) {
+    suspend fun addContact(name: String, phoneNumber: String, notes: String, categoryId: Int? = null) {
         val normalized = PhoneUtils.normalize(phoneNumber)
         dao.insert(
             ContactEntity(
                 name = name.trim(),
                 phoneNumber = normalized,
-                notes = notes.trim()
+                notes = notes.trim(),
+                categoryId = categoryId
             )
         )
     }

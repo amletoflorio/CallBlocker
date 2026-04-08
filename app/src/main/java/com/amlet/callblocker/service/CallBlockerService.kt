@@ -119,6 +119,13 @@ class CallBlockerService : CallScreeningService() {
                         if (whitelistEntry?.isExpired == true) {
                             serviceScope.launch { repository.delete(whitelistEntry) }
                         }
+                        if (inWhitelist && !inContacts && prefs.notifyOnWhitelistCall) {
+                            NotificationHelper.notifyWhitelistCall(
+                                this,
+                                rawNumber,
+                                whitelistEntry?.name
+                            )
+                        }
                         buildAllowResponse()
                     } else {
                         // ── Dialed-number whitelist ────────────────────────────
@@ -588,6 +595,13 @@ class CallBlockerService : CallScreeningService() {
                     AppPreferences.NOTIFICATION_CHANNEL_NAME,
                     NotificationManager.IMPORTANCE_DEFAULT
                 ).apply { description = "Notification when a call is blocked" }
+            )
+            nm.createNotificationChannel(
+                NotificationChannel(
+                    NotificationHelper.CHANNEL_WHITELIST_CALL,
+                    "Whitelist calls",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply { description = "Notifications when a whitelisted number calls you" }
             )
             nm.createNotificationChannel(
                 NotificationChannel(

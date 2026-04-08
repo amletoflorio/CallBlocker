@@ -25,19 +25,22 @@ import com.amlet.callblocker.BuildConfig
 import com.amlet.callblocker.CallBlockerApp
 import com.amlet.callblocker.R
 import com.amlet.callblocker.data.db.AppDatabase
+import com.amlet.callblocker.data.db.CategoryEntity
+import com.amlet.callblocker.data.db.ContactEntity
 import com.amlet.callblocker.data.db.ScheduleRuleEntity
 import com.amlet.callblocker.data.prefs.AppPreferences
 import com.amlet.callblocker.service.ScheduleManager
 import com.amlet.callblocker.ui.components.ChangelogDialog
 import com.amlet.callblocker.util.LocaleHelper
 import com.amlet.callblocker.util.UpdateChecker
+import androidx.compose.runtime.collectAsState
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 import com.amlet.callblocker.ui.theme.Emerald500
 
-private enum class SettingsTab { CALLS, SCHEDULE, BACKUP, UPDATES, INFO }
+private enum class SettingsTab { CALLS, SCHEDULE, WHITELIST, BACKUP, UPDATES, INFO }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,6 +61,7 @@ fun SettingsScreen(
     val tabLabels = listOf(
         stringResource(R.string.settings_tab_calls),
         stringResource(R.string.settings_tab_schedule),
+        stringResource(R.string.settings_tab_whitelist),
         stringResource(R.string.settings_tab_backup),
         stringResource(R.string.settings_tab_updates),
         stringResource(R.string.settings_tab_info)
@@ -65,6 +69,7 @@ fun SettingsScreen(
     val tabIcons = listOf(
         Icons.Rounded.Call,
         Icons.Rounded.Schedule,
+        Icons.Rounded.ContactPhone,
         Icons.Rounded.Backup,
         Icons.Rounded.SystemUpdate,
         Icons.Rounded.Info
@@ -104,11 +109,12 @@ fun SettingsScreen(
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             when (selectedTab) {
-                SettingsTab.CALLS    -> CallsTab(context, onApplyLogRetention)
-                SettingsTab.SCHEDULE -> ScheduleTab(context)
-                SettingsTab.BACKUP   -> BackupTab(context, onExportBackup, onImportBackup)
-                SettingsTab.UPDATES  -> UpdatesTab(context)
-                SettingsTab.INFO     -> InfoTab(context, onShowChangelog = { showChangelog = true }, onLanguageChanged = {})
+                SettingsTab.CALLS     -> CallsTab(context, onApplyLogRetention)
+                SettingsTab.SCHEDULE  -> ScheduleTab(context)
+                SettingsTab.WHITELIST -> WhitelistTab(context)
+                SettingsTab.BACKUP    -> BackupTab(context, onExportBackup, onImportBackup)
+                SettingsTab.UPDATES   -> UpdatesTab(context)
+                SettingsTab.INFO      -> InfoTab(context, onShowChangelog = { showChangelog = true }, onLanguageChanged = {})
             }
         }
     }
@@ -120,6 +126,7 @@ fun SettingsScreen(
 private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
     val prefs = remember { AppPreferences(context) }
     var notifyOnBlock    by remember { mutableStateOf(prefs.notifyOnBlock) }
+    var notifyOnWhitelistCall by remember { mutableStateOf(prefs.notifyOnWhitelistCall) }
     var suspendUntil     by remember { mutableStateOf(prefs.suspendUntil) }
     var showSuspendDialog by remember { mutableStateOf(false) }
     var protectedSim     by remember { mutableStateOf(prefs.protectedSim) }
@@ -168,7 +175,7 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
                         Text(stringResource(R.string.settings_suspend_title), style = MaterialTheme.typography.titleMedium,
                             color = if (isSuspended) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
                         Text(if (isSuspended) stringResource(R.string.settings_suspend_active_until, formatTime(suspendUntil))
-                             else stringResource(R.string.settings_suspend_subtitle),
+                        else stringResource(R.string.settings_suspend_subtitle),
                             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -208,6 +215,20 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
                     Text(stringResource(R.string.settings_notify_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(checked = notifyOnBlock, onCheckedChange = { prefs.notifyOnBlock = it; notifyOnBlock = it })
+            }
+        }
+
+        // ── Notify whitelist calls ────────────────────────────────────────────
+        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Notifications, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_notify_whitelist_title), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_notify_whitelist_subtitle), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Switch(checked = notifyOnWhitelistCall, onCheckedChange = { prefs.notifyOnWhitelistCall = it; notifyOnWhitelistCall = it })
             }
         }
 
@@ -374,7 +395,7 @@ private fun CallsTab(context: Context, onApplyLogRetention: (Int) -> Unit) {
 @Composable
 private fun SimSelector(selected: String, onSelect: (String) -> Unit) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        listOf(AppPreferences.SIM_1 to "SIM 1", AppPreferences.SIM_2 to "SIM 2", AppPreferences.SIM_BOTH to "Entrambe")
+        listOf(AppPreferences.SIM_1 to "SIM 1", AppPreferences.SIM_2 to "SIM 2", AppPreferences.SIM_BOTH to stringResource(R.string.settings_sim_both))
             .forEach { (value, label) ->
                 FilterChip(selected = selected == value, onClick = { onSelect(value) },
                     label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
@@ -392,14 +413,18 @@ private fun ScheduleTab(context: Context) {
     val scope = rememberCoroutineScope()
 
     var scheduleEnabled by remember { mutableStateOf(prefs.scheduleEnabled) }
-    val rules by db.scheduleRuleDao().getAll().collectAsState(initial = emptyList())
+    val rules      by db.scheduleRuleDao().getAll().collectAsState(initial = emptyList())
+    val categories by db.categoryDao().getAllCategories().collectAsState(initial = emptyList())
+    val contacts   by db.contactDao().getAllContacts().collectAsState(initial = emptyList())
 
     var showAddDialog by remember { mutableStateOf(false) }
     var editingRule   by remember { mutableStateOf<ScheduleRuleEntity?>(null) }
 
     if (showAddDialog || editingRule != null) {
         ScheduleRuleDialog(
-            existing = editingRule,
+            existing   = editingRule,
+            categories = categories,
+            contacts   = contacts,
             onSave = { rule ->
                 scope.launch {
                     db.scheduleRuleDao().upsert(rule)
@@ -484,45 +509,88 @@ private fun ScheduleRuleCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val dayLabels = listOf("L","M","M","G","V","S","D")
+    // Single-letter day abbreviations (Mon–Sun)
+    val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
     val activeDays = rule.dayList()
     val modeLabel = if (rule.mode == ScheduleRuleEntity.MODE_ACTIVATE)
         stringResource(R.string.settings_schedule_mode_activate)
     else stringResource(R.string.settings_schedule_mode_deactivate)
 
-    Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = if (rule.enabled) MaterialTheme.colorScheme.surface
-                                          else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))) {
+    // Human-readable target badge text
+    val targetLabel = when (rule.targetType) {
+        ScheduleRuleEntity.TARGET_CATEGORY -> stringResource(R.string.settings_schedule_target_category)
+        ScheduleRuleEntity.TARGET_CONTACT  -> stringResource(R.string.settings_schedule_target_contact)
+        else                               -> null
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (rule.enabled) MaterialTheme.colorScheme.surface
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+        )
+    ) {
         Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (rule.mode == ScheduleRuleEntity.MODE_ACTIVATE) Icons.Rounded.LockClock else Icons.Rounded.LockOpen,
-                    null, tint = if (rule.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp))
+                Icon(
+                    if (rule.mode == ScheduleRuleEntity.MODE_ACTIVATE) Icons.Rounded.LockClock else Icons.Rounded.LockOpen,
+                    null,
+                    tint = if (rule.enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(modeLabel, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text("${rule.startTime} → ${rule.endTime}", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        rule.name?.takeIf { it.isNotBlank() } ?: modeLabel,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        if (rule.name?.isNotBlank() == true) "$modeLabel  ·  ${rule.startTime} → ${rule.endTime}"
+                        else "${rule.startTime} → ${rule.endTime}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Switch(checked = rule.enabled, onCheckedChange = { onToggle() })
             }
-            // Day pills
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            // Day pills + SIM badge + target badge + action buttons
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
                 dayLabels.forEachIndexed { i, label ->
                     val active = (i + 1) in activeDays
-                    Surface(shape = RoundedCornerShape(6.dp),
-                        color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant) {
-                        Text(label, style = MaterialTheme.typography.labelSmall,
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Text(
+                            label, style = MaterialTheme.typography.labelSmall,
                             color = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
                     }
                 }
+                // SIM badge
                 if (rule.simTarget != AppPreferences.SIM_BOTH) {
                     Spacer(Modifier.width(4.dp))
                     Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Text(if (rule.simTarget == AppPreferences.SIM_1) "SIM 1" else "SIM 2",
-                            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp))
+                        Text(
+                            if (rule.simTarget == AppPreferences.SIM_1) "SIM 1" else "SIM 2",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+                // Target type badge (shown only for non-global rules)
+                if (targetLabel != null) {
+                    Spacer(Modifier.width(4.dp))
+                    Surface(shape = RoundedCornerShape(6.dp), color = MaterialTheme.colorScheme.tertiaryContainer) {
+                        Text(
+                            targetLabel,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
                     }
                 }
                 Spacer(Modifier.weight(1f))
@@ -538,8 +606,26 @@ private fun ScheduleRuleCard(
 }
 
 @Composable
+/**
+ * Dialog for creating or editing a scheduling rule.
+ *
+ * In addition to the existing mode / days / times / SIM fields, the user can now
+ * choose what the rule applies to:
+ *  - [ScheduleRuleEntity.TARGET_ALL]      → global protection toggle (default)
+ *  - [ScheduleRuleEntity.TARGET_CATEGORY] → only contacts in a specific category
+ *  - [ScheduleRuleEntity.TARGET_CONTACT]  → only a single whitelist contact
+ *
+ * @param existing   The rule to edit, or null when creating a new one.
+ * @param categories All available categories (used for the category target picker).
+ * @param contacts   All whitelist contacts (used for the contact target picker).
+ * @param onSave     Called with the completed [ScheduleRuleEntity].
+ * @param onDismiss  Closes the dialog without saving.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 private fun ScheduleRuleDialog(
     existing: ScheduleRuleEntity?,
+    categories: List<CategoryEntity>,
+    contacts: List<ContactEntity>,
     onSave: (ScheduleRuleEntity) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -551,84 +637,493 @@ private fun ScheduleRuleDialog(
         } catch (e: Exception) { 1 }
     }
 
-    var mode      by remember { mutableStateOf(existing?.mode ?: ScheduleRuleEntity.MODE_DEACTIVATE) }
-    var startTime by remember { mutableStateOf(existing?.startTime ?: "22:00") }
-    var endTime   by remember { mutableStateOf(existing?.endTime ?: "07:00") }
-    var selDays   by remember { mutableStateOf(existing?.dayList()?.toSet() ?: setOf(1,2,3,4,5)) }
-    var simTarget by remember { mutableStateOf(existing?.simTarget ?: AppPreferences.SIM_BOTH) }
+    var ruleName   by remember { mutableStateOf(existing?.name ?: "") }
+    var mode       by remember { mutableStateOf(existing?.mode ?: ScheduleRuleEntity.MODE_DEACTIVATE) }
+    var startTime  by remember { mutableStateOf(existing?.startTime ?: "22:00") }
+    var endTime    by remember { mutableStateOf(existing?.endTime ?: "07:00") }
+    var selDays    by remember { mutableStateOf(existing?.dayList()?.toSet() ?: setOf(1, 2, 3, 4, 5)) }
+    var simTarget  by remember { mutableStateOf(existing?.simTarget ?: AppPreferences.SIM_BOTH) }
+    var targetType by remember { mutableStateOf(existing?.targetType ?: ScheduleRuleEntity.TARGET_ALL) }
+    var targetId   by remember { mutableStateOf(existing?.targetId) }
 
-    val dayLabels = listOf("L","M","M","G","V","S","D")
+    // Day-of-week labels (Mon–Sun)
+    val dayLabels = listOf("M", "T", "W", "T", "F", "S", "S")
 
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = { Icon(Icons.Rounded.Schedule, null) },
-        title = { Text(if (existing == null) stringResource(R.string.settings_schedule_add) else stringResource(R.string.settings_schedule_edit)) },
+        title = {
+            Text(
+                if (existing == null) stringResource(R.string.settings_schedule_add)
+                else stringResource(R.string.settings_schedule_edit)
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                // Mode
-                Text(stringResource(R.string.settings_schedule_mode_label), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+            ) {
+                // ── Name (optional) ───────────────────────────────────────────
+                OutlinedTextField(
+                    value = ruleName,
+                    onValueChange = { ruleName = it },
+                    label = { Text(stringResource(R.string.settings_schedule_name_label)) },
+                    placeholder = { Text(stringResource(R.string.settings_schedule_name_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // ── Mode ──────────────────────────────────────────────────────
+                Text(
+                    stringResource(R.string.settings_schedule_mode_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(ScheduleRuleEntity.MODE_DEACTIVATE to stringResource(R.string.settings_schedule_mode_deactivate),
-                           ScheduleRuleEntity.MODE_ACTIVATE   to stringResource(R.string.settings_schedule_mode_activate))
-                        .forEach { (value, label) ->
-                            FilterChip(selected = mode == value, onClick = { mode = value },
-                                label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
-                        }
+                    listOf(
+                        ScheduleRuleEntity.MODE_DEACTIVATE to stringResource(R.string.settings_schedule_mode_deactivate),
+                        ScheduleRuleEntity.MODE_ACTIVATE   to stringResource(R.string.settings_schedule_mode_activate)
+                    ).forEach { (value, label) ->
+                        FilterChip(
+                            selected = mode == value, onClick = { mode = value },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
-                // Days
-                Text(stringResource(R.string.settings_schedule_days_label), style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                // ── Days ──────────────────────────────────────────────────────
+                Text(
+                    stringResource(R.string.settings_schedule_days_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     dayLabels.forEachIndexed { i, label ->
                         val dayNum = i + 1
-                        FilterChip(selected = dayNum in selDays,
+                        FilterChip(
+                            selected = dayNum in selDays,
                             onClick = { selDays = if (dayNum in selDays) selDays - dayNum else selDays + dayNum },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) }, modifier = Modifier.weight(1f))
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
-                // Times
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = startTime, onValueChange = { startTime = it },
+
+                // ── Times ─────────────────────────────────────────────────────
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = startTime, onValueChange = { startTime = it },
                         label = { Text(stringResource(R.string.settings_schedule_start)) },
-                        placeholder = { Text("HH:mm") }, singleLine = true, modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.ArrowForward, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedTextField(value = endTime, onValueChange = { endTime = it },
+                        placeholder = { Text("HH:mm") }, singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        Icons.Rounded.ArrowForward, null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    OutlinedTextField(
+                        value = endTime, onValueChange = { endTime = it },
                         label = { Text(stringResource(R.string.settings_schedule_end)) },
-                        placeholder = { Text("HH:mm") }, singleLine = true, modifier = Modifier.weight(1f))
+                        placeholder = { Text("HH:mm") }, singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-                // SIM
+
+                // ── SIM ───────────────────────────────────────────────────────
                 if (simCount > 1) {
-                    Text(stringResource(R.string.settings_feature_sim_label), style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        stringResource(R.string.settings_feature_sim_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     SimSelector(selected = simTarget, onSelect = { simTarget = it })
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // ── Target ────────────────────────────────────────────────────
+                Text(
+                    stringResource(R.string.settings_schedule_target_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf(
+                        ScheduleRuleEntity.TARGET_ALL      to stringResource(R.string.settings_schedule_target_all),
+                        ScheduleRuleEntity.TARGET_CATEGORY to stringResource(R.string.settings_schedule_target_category),
+                        ScheduleRuleEntity.TARGET_CONTACT  to stringResource(R.string.settings_schedule_target_contact)
+                    ).forEach { (value, label) ->
+                        FilterChip(
+                            selected = targetType == value,
+                            onClick = {
+                                targetType = value
+                                targetId = null // reset selection when switching type
+                            },
+                            label = { Text(label, style = MaterialTheme.typography.labelSmall) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+
+                // Category picker (visible when targetType == TARGET_CATEGORY)
+                if (targetType == ScheduleRuleEntity.TARGET_CATEGORY) {
+                    if (categories.isEmpty()) {
+                        Text(
+                            stringResource(R.string.settings_schedule_target_no_categories),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            categories.forEach { cat ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    RadioButton(
+                                        selected = targetId == cat.id,
+                                        onClick = { targetId = cat.id }
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        buildString {
+                                            if (cat.emoji.isNotBlank()) { append(cat.emoji); append(" ") }
+                                            append(cat.name)
+                                        },
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Contact picker (visible when targetType == TARGET_CONTACT)
+                if (targetType == ScheduleRuleEntity.TARGET_CONTACT) {
+                    if (contacts.isEmpty()) {
+                        Text(
+                            stringResource(R.string.settings_schedule_target_no_contacts),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            contacts.forEach { contact ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    RadioButton(
+                                        selected = targetId == contact.id,
+                                        onClick = { targetId = contact.id }
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Column {
+                                        Text(contact.name, style = MaterialTheme.typography.bodyMedium)
+                                        Text(
+                                            contact.phoneNumber,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
-                    if (selDays.isNotEmpty() && startTime.matches(Regex("\\d{2}:\\d{2}")) && endTime.matches(Regex("\\d{2}:\\d{2}"))) {
-                        onSave(ScheduleRuleEntity(
-                            id        = existing?.id ?: 0,
-                            mode      = mode,
-                            days      = selDays.sorted().joinToString(","),
-                            startTime = startTime,
-                            endTime   = endTime,
-                            enabled   = existing?.enabled ?: true,
-                            simTarget = simTarget
-                        ))
+                    val timeRegex = Regex("\\d{2}:\\d{2}")
+                    val targetOk = when (targetType) {
+                        ScheduleRuleEntity.TARGET_CATEGORY,
+                        ScheduleRuleEntity.TARGET_CONTACT -> targetId != null
+                        else -> true
+                    }
+                    if (selDays.isNotEmpty()
+                        && startTime.matches(timeRegex)
+                        && endTime.matches(timeRegex)
+                        && targetOk
+                    ) {
+                        onSave(
+                            ScheduleRuleEntity(
+                                id         = existing?.id ?: 0,
+                                mode       = mode,
+                                days       = selDays.sorted().joinToString(","),
+                                startTime  = startTime,
+                                endTime    = endTime,
+                                enabled    = existing?.enabled ?: true,
+                                simTarget  = simTarget,
+                                targetType = targetType,
+                                targetId   = if (targetType == ScheduleRuleEntity.TARGET_ALL) null else targetId,
+                                name       = ruleName.trim().ifBlank { null }
+                            )
+                        )
                     }
                 },
                 enabled = selDays.isNotEmpty()
             ) { Text(stringResource(R.string.common_save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        }
+    )
+}
+
+
+// ── Tab: Whitelist ────────────────────────────────────────────────────────────
+
+/**
+ * Settings tab for managing whitelist contact categories.
+ *
+ * Displays existing categories as cards with edit/delete actions, and provides
+ * a button to create a new category. The "Create category" dialog is shown
+ * inline — the same [CreateCategoryDialog] composable reused from the Add/Edit
+ * contact screens.
+ */
+@Composable
+private fun WhitelistTab(context: Context) {
+    val db    = remember { AppDatabase.getInstance(context) }
+    val scope = rememberCoroutineScope()
+
+    val categories by db.categoryDao().getAllCategories().collectAsState(initial = emptyList())
+
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var editingCategory  by remember { mutableStateOf<CategoryEntity?>(null) }
+    var deletingCategory by remember { mutableStateOf<CategoryEntity?>(null) }
+
+    if (showCreateDialog) {
+        CreateCategoryDialog(
+            onConfirm = { name, emoji ->
+                scope.launch { db.categoryDao().insert(CategoryEntity(name = name, emoji = emoji)) }
+                showCreateDialog = false
+            },
+            onDismiss = { showCreateDialog = false }
+        )
+    }
+
+    editingCategory?.let { cat ->
+        EditCategoryDialog(
+            category = cat,
+            onConfirm = { updated ->
+                scope.launch { db.categoryDao().update(updated) }
+                editingCategory = null
+            },
+            onDismiss = { editingCategory = null }
+        )
+    }
+
+    deletingCategory?.let { cat ->
+        AlertDialog(
+            onDismissRequest = { deletingCategory = null },
+            icon = { Icon(Icons.Rounded.DeleteForever, null, tint = MaterialTheme.colorScheme.error) },
+            title = { Text(stringResource(R.string.category_delete_title)) },
+            text = { Text(stringResource(R.string.category_delete_body, cat.name)) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            db.contactDao().clearCategoryFromContacts(cat.id)
+                            db.categoryDao().delete(cat)
+                        }
+                        deletingCategory = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text(stringResource(R.string.common_delete)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { deletingCategory = null }) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Spacer(Modifier.height(8.dp))
+
+        // Info card
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+                Text(
+                    stringResource(R.string.settings_whitelist_info),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        if (categories.isEmpty()) {
+            // Empty state
+            Card(
+                modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Label, null,
+                        modifier = Modifier.size(40.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.settings_whitelist_empty),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        } else {
+            categories.forEach { cat ->
+                CategoryCard(
+                    category = cat,
+                    onEdit   = { editingCategory = cat },
+                    onDelete = { deletingCategory = cat }
+                )
+            }
+        }
+
+        // Add category button
+        Button(
+            onClick = { showCreateDialog = true },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.settings_whitelist_add_category))
+        }
+
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Card displaying a single category with its emoji, name and action buttons.
+ */
+@Composable
+private fun CategoryCard(
+    category: CategoryEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Emoji or default label icon
+            if (category.emoji.isNotBlank()) {
+                Text(category.emoji, style = MaterialTheme.typography.titleLarge)
+            } else {
+                Icon(
+                    Icons.Rounded.Label, null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(Modifier.width(14.dp))
+            Text(
+                category.name,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Rounded.Edit, null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(
+                    Icons.Rounded.DeleteOutline, null,
+                    modifier = Modifier.size(18.dp),
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Dialog for editing an existing category's name and emoji.
+ */
+@Composable
+private fun EditCategoryDialog(
+    category: CategoryEntity,
+    onConfirm: (CategoryEntity) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var name  by remember { mutableStateOf(category.name) }
+    var emoji by remember { mutableStateOf(category.emoji) }
+    var nameError by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Rounded.Edit, null) },
+        title = { Text(stringResource(R.string.category_edit_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it; nameError = false },
+                    label = { Text(stringResource(R.string.category_name_label)) },
+                    isError = nameError,
+                    supportingText = { if (nameError) Text(stringResource(R.string.category_name_required)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = emoji,
+                    onValueChange = { if (it.length <= 2) emoji = it },
+                    label = { Text(stringResource(R.string.category_emoji_label)) },
+                    placeholder = { Text(stringResource(R.string.category_emoji_hint)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = {
+                if (name.isBlank()) nameError = true
+                else onConfirm(category.copy(name = name.trim(), emoji = emoji.trim()))
+            }) { Text(stringResource(R.string.common_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        }
     )
 }
 
 
 // ── Tab: Backup ───────────────────────────────────────────────────────────────
+
 
 @Composable
 private fun BackupTab(context: Context, onExportBackup: (Context, Uri) -> Unit, onImportBackup: (Context, Uri) -> Unit) {

@@ -20,6 +20,10 @@ object NotificationHelper {
     private const val CHANNEL_AUTO_BACKUP_NAME = "Automatic backup"
     private const val CHANNEL_AUTO_BACKUP_DESC = "Silent notifications on automatic backup completion"
 
+    const val CHANNEL_WHITELIST_CALL      = "whitelist_call"
+    private const val CHANNEL_WHITELIST_CALL_NAME = "Whitelist calls"
+    private const val CHANNEL_WHITELIST_CALL_DESC = "Notifications when a whitelisted number calls you"
+
     private const val NOTIF_ID_BACKUP      = 1001
     private const val NOTIF_ID_AUTO_BACKUP = 1003
 
@@ -46,7 +50,29 @@ object NotificationHelper {
                 NotificationChannel(CHANNEL_AUTO_BACKUP, CHANNEL_AUTO_BACKUP_NAME, NotificationManager.IMPORTANCE_LOW)
                     .apply { description = CHANNEL_AUTO_BACKUP_DESC }
             )
+
+            nm.createNotificationChannel(
+                NotificationChannel(CHANNEL_WHITELIST_CALL, CHANNEL_WHITELIST_CALL_NAME, NotificationManager.IMPORTANCE_HIGH)
+                    .apply { description = CHANNEL_WHITELIST_CALL_DESC }
+            )
         }
+    }
+
+    fun notifyWhitelistCall(context: Context, number: String, name: String?) {
+        val nm = context.getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !nm.areNotificationsEnabled()) return
+        val displayName = if (!name.isNullOrBlank()) name else number
+        val notification = NotificationCompat.Builder(context, CHANNEL_WHITELIST_CALL)
+            .setSmallIcon(R.drawable.ic_notification)
+            .setLargeIcon(getLargeIcon(context))
+            .setColor(0xFF10B981.toInt())
+            .setContentTitle(context.getString(R.string.notif_whitelist_call_title))
+            .setContentText(context.getString(R.string.notif_whitelist_call_text, displayName))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setAutoCancel(true)
+            .build()
+        nm.notify(number.hashCode() + 5000, notification)
     }
 
     fun notifyBackupResult(context: Context, success: Boolean, message: String) {

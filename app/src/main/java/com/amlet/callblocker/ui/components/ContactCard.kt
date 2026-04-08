@@ -14,22 +14,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.amlet.callblocker.data.db.CategoryEntity
 import com.amlet.callblocker.data.db.ContactEntity
 import com.amlet.callblocker.ui.theme.Emerald500
 import com.amlet.callblocker.util.PhoneUtils
 
+/**
+ * Card representing a single whitelist contact.
+ *
+ * Displays the contact's avatar initial, name, phone number, optional notes,
+ * and — when [category] is provided — a small category chip below the name.
+ *
+ * @param contact  The whitelist contact to display.
+ * @param category The [CategoryEntity] assigned to this contact, or null if uncategorised.
+ * @param onDelete Called when the user taps the delete icon.
+ * @param onEdit   Called when the user taps the edit icon.
+ */
 @Composable
 fun ContactCard(
     contact: ContactEntity,
+    category: CategoryEntity? = null,
     onDelete: () -> Unit,
     onEdit: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -37,6 +48,7 @@ fun ContactCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Avatar circle with the first letter of the contact's name
             Box(
                 modifier = Modifier
                     .size(44.dp)
@@ -54,6 +66,7 @@ fun ContactCard(
 
             Spacer(modifier = Modifier.width(14.dp))
 
+            // Name, phone, notes and optional category chip
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = contact.name,
@@ -73,22 +86,40 @@ fun ContactCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
+                // Category badge — only shown when a category is assigned
+                if (category != null) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer
+                    ) {
+                        Text(
+                            text = buildString {
+                                if (category.emoji.isNotBlank()) { append(category.emoji); append(" ") }
+                                append(category.name)
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
             }
 
-            // Pulsante modifica
+            // Edit button
             IconButton(onClick = onEdit) {
                 Icon(
                     Icons.Rounded.EditNote,
-                    contentDescription = "Modifica ${contact.name}",
+                    contentDescription = "Edit ${contact.name}",
                     tint = MaterialTheme.colorScheme.primary
                 )
             }
 
-            // Pulsante elimina
+            // Delete button
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Rounded.DeleteOutline,
-                    contentDescription = "Rimuovi ${contact.name}",
+                    contentDescription = "Remove ${contact.name}",
                     tint = MaterialTheme.colorScheme.error
                 )
             }

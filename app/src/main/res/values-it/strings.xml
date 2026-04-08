@@ -106,6 +106,8 @@
     <string name="settings_suspend_dialog_cancel">Annulla</string>
     <string name="settings_notify_title">Notifica chiamate bloccate</string>
     <string name="settings_notify_subtitle">Ricevi una notifica ogni volta che una chiamata viene bloccata</string>
+    <string name="settings_notify_whitelist_title">Notifica chiamate dalla whitelist</string>
+    <string name="settings_notify_whitelist_subtitle">Ricevi una notifica quando ti chiama un numero nella whitelist</string>
 
     <!-- Settings — Log retention -->
     <string name="settings_log_retention_title">Pulizia automatica log</string>
@@ -268,6 +270,8 @@
     <string name="notif_restore_error_title">Errore ripristino</string>
     <string name="notif_channel_blocked_name">Chiamate bloccate</string>
     <string name="notif_blocked_title">Chiamata bloccata</string>
+    <string name="notif_whitelist_call_title">Chiamata dalla whitelist</string>
+    <string name="notif_whitelist_call_text">%1$s sta chiamando</string>
     <string name="notif_retry_rule_title">Chiamata lasciata passare</string>
     <string name="notif_retry_rule_text">%1$s ha chiamato %2$d volte in %3$d minuti ed è stato lasciato passare.</string>
     <string name="notif_auto_backup_success_title">Backup automatico completato</string>
@@ -383,4 +387,56 @@
     <string name="changelog_1_8_0_5">Esporta/importa tutte le impostazioni in un unico file JSON per backup e ripristino completi</string>
     <string name="changelog_1_8_0_6">Impostazione avvio spostata nel tab Backup — le impostazioni sono ora organizzate più logicamente</string>
     <string name="changelog_1_8_0_8">Risolto: l\'icona notifiche usa ora il formato alpha-mask corretto su tutte le versioni Android</string>
+    <string name="changelog_1_8_0_9">Nuova notifica opzionale quando una chiamata in arrivo corrisponde a un numero in whitelist non presente nei contatti</string>
+
+    <!-- Settings — Tab Whitelist -->
+    <string name="settings_tab_whitelist">Whitelist</string>
+    <string name="settings_whitelist_info">Le categorie ti permettono di raggruppare i contatti in whitelist (es. Famiglia, Lavoro, Corrieri) e usarle come target nelle regole di pianificazione.</string>
+    <string name="settings_whitelist_empty">Nessuna categoria.\nPremi il pulsante qui sotto per crearne una.</string>
+    <string name="settings_whitelist_add_category">Aggiungi categoria</string>
+
+    <!-- Gestione categorie (condiviso tra Impostazioni e schermate Aggiungi/Modifica contatto) -->
+    <string name="add_contact_category_label">Categoria (opzionale)</string>
+    <string name="category_none">Nessuna</string>
+    <string name="category_create">Crea categoria</string>
+    <string name="category_create_title">Nuova categoria</string>
+    <string name="category_edit_title">Modifica categoria</string>
+    <string name="category_name_label">Nome *</string>
+    <string name="category_name_hint">Es. Famiglia, Lavoro, Corrieri…</string>
+    <string name="category_name_required">Il nome è obbligatorio</string>
+    <string name="category_emoji_label">Emoji (opzionale)</string>
+    <string name="category_emoji_hint">Es. 👨‍👩‍👧</string>
+    <string name="category_delete_title">Eliminare la categoria?</string>
+    <string name="category_delete_body">"%1$s" verrà eliminata. I contatti assegnati a questa categoria non saranno rimossi — verrà rimossa solo l\'associazione alla categoria.</string>
+
+    <!-- Messaggi -->
+    <string name="msg_category_added">Categoria aggiunta</string>
+    <string name="msg_category_updated">Categoria aggiornata</string>
+    <string name="msg_category_deleted">"%1$s" eliminata</string>
+
+    <!-- Filtro lista contatti -->
+    <string name="contacts_filter_all">Tutti</string>
+    <string name="contacts_filter_empty">Nessun contatto in questa categoria</string>
+
+    <!-- Target regola di pianificazione -->
+    <string name="settings_schedule_target_label">Si applica a</string>
+    <string name="settings_schedule_target_all">Tutte le chiamate</string>
+    <string name="settings_schedule_target_category">Categoria</string>
+    <string name="settings_schedule_target_contact">Contatto</string>
+    <string name="settings_schedule_target_no_categories">Nessuna categoria disponibile. Creane una nel tab Whitelist.</string>
+    <string name="settings_schedule_target_no_contacts">Nessun contatto in whitelist.</string>
+    <string name="settings_schedule_name_label">Nome regola (opzionale)</string>
+    <string name="settings_schedule_name_placeholder">es. Notte, Fine settimana…</string>
+
+    <!-- Azioni comuni -->
+    <string name="common_delete">Elimina</string>
+
+    <!-- Changelog v1.8.1 -->
+    <string name="changelog_1_8_1_1">I contatti in whitelist possono ora essere assegnati a categorie (es. Famiglia, Lavoro, Corrieri)</string>
+    <string name="changelog_1_8_1_2">Le categorie possono essere create direttamente dalla schermata Aggiungi/Modifica contatto</string>
+    <string name="changelog_1_8_1_3">Nuovo tab Whitelist nelle Impostazioni per gestire le categorie</string>
+    <string name="changelog_1_8_1_4">La lista contatti può essere filtrata per categoria tramite chip di filtro</string>
+    <string name="changelog_1_8_1_5">Le regole di pianificazione possono ora avere come target una categoria o un contatto specifico</string>
+    <string name="changelog_1_8_1_6">Le regole di pianificazione possono ora avere un nome personalizzato (es. "Notte", "Fine settimana")</string>
 </resources>
+

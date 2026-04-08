@@ -1,8 +1,10 @@
 package com.amlet.callblocker.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
@@ -13,34 +15,66 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.amlet.callblocker.R
+import com.amlet.callblocker.data.db.CategoryEntity
 import com.amlet.callblocker.data.db.ContactEntity
 import com.amlet.callblocker.util.PhoneUtils
 
+/**
+ * Screen for editing an existing whitelist contact.
+ *
+ * Pre-populates all fields from the [contact] argument. The category picker
+ * allows changing or clearing the category assignment, and a new category can
+ * be created inline via [onCreateCategory].
+ *
+ * @param contact          The contact to edit.
+ * @param categories       Live list of available categories.
+ * @param onSave           Called with the updated [ContactEntity] when the form is valid.
+ * @param onCreateCategory Called with (name, emoji, callback) to create a new category on the fly.
+ * @param onNavigateBack   Pops this screen from the back stack.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditContactScreen(
     contact: ContactEntity,
+    categories: List<CategoryEntity>,
     onSave: (ContactEntity) -> Unit,
+    onCreateCategory: (name: String, emoji: String, onResult: (Long) -> Unit) -> Unit,
     onNavigateBack: () -> Unit
 ) {
-    var name by remember { mutableStateOf(contact.name) }
-    var phone by remember { mutableStateOf(contact.phoneNumber) }
-    var notes by remember { mutableStateOf(contact.notes) }
-    var nameError by remember { mutableStateOf<String?>(null) }
+    var name          by remember { mutableStateOf(contact.name) }
+    var phone         by remember { mutableStateOf(contact.phoneNumber) }
+    var notes         by remember { mutableStateOf(contact.notes) }
+    var selectedCatId by remember { mutableStateOf(contact.categoryId) }
+
+    var nameError  by remember { mutableStateOf<String?>(null) }
     var phoneError by remember { mutableStateOf<String?>(null) }
 
-    val errNameRequired = stringResource(R.string.add_contact_name_hint)
+    var showCreateCatDialog by remember { mutableStateOf(false) }
+
+    val errNameRequired  = stringResource(R.string.add_contact_name_hint)
     val errPhoneRequired = stringResource(R.string.add_contact_phone_hint)
-    val errPhoneInvalid = stringResource(R.string.add_contact_phone_error)
+    val errPhoneInvalid  = stringResource(R.string.add_contact_phone_error)
 
     fun validate(): Boolean {
-        nameError = if (name.isBlank()) errNameRequired else null
+        nameError  = if (name.isBlank()) errNameRequired else null
         phoneError = when {
-            phone.isBlank() -> errPhoneRequired
+            phone.isBlank()            -> errPhoneRequired
             !PhoneUtils.isValid(phone) -> errPhoneInvalid
-            else -> null
+            else                       -> null
         }
         return nameError == null && phoneError == null
+    }
+
+    if (showCreateCatDialog) {
+        CreateCategoryDialog(
+            onConfirm = { catName, catEmoji ->
+                onCreateCategory(catName, catEmoji) { newId ->
+                    if (newId > 0) selectedCatId = newId.toInt()
+                }
+                showCreateCatDialog = false
+            },
+            onDismiss = { showCreateCatDialog = false }
+        )
     }
 
     Scaffold(
@@ -52,9 +86,7 @@ fun EditContactScreen(
                         Icon(Icons.Rounded.Close, stringResource(R.string.add_contact_cancel))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
-                )
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
             )
         },
         containerColor = MaterialTheme.colorScheme.background
@@ -63,6 +95,7 @@ fun EditContactScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -72,7 +105,7 @@ fun EditContactScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             OutlinedTextField(
                 value = name,
@@ -116,7 +149,14 @@ fun EditContactScreen(
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
             )
 
-            Spacer(modifier = Modifier.weight(1f))
+            CategoryPickerSection(
+                categories = categories,
+                selectedCategoryId = selectedCatId,
+                onSelectCategory = { id -> selectedCatId = if (selectedCatId == id) null else id },
+                onCreateCategory = { showCreateCatDialog = true }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = {
@@ -125,7 +165,8 @@ fun EditContactScreen(
                             contact.copy(
                                 name = name.trim(),
                                 phoneNumber = phone.trim(),
-                                notes = notes.trim()
+                                notes = notes.trim(),
+                                categoryId = selectedCatId
                             )
                         )
                         onNavigateBack()

@@ -50,4 +50,15 @@ interface ContactDao {
     /** Synchronous count — for use in AppWidgets. */
     @Query("SELECT COUNT(*) FROM allowed_contacts")
     fun countSync(): Int
+
+    /**
+     * Removes the category assignment from all contacts that reference [categoryId].
+     * Called automatically when a category is deleted to avoid stale references.
+     */
+    @Query("UPDATE allowed_contacts SET categoryId = NULL WHERE categoryId = :categoryId")
+    suspend fun clearCategoryFromContacts(categoryId: Int)
+
+    /** Returns all contacts belonging to a specific category. */
+    @Query("SELECT * FROM allowed_contacts WHERE categoryId = :categoryId ORDER BY name ASC")
+    fun getContactsByCategory(categoryId: Int): Flow<List<ContactEntity>>
 }

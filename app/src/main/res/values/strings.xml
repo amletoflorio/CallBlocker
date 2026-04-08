@@ -107,6 +107,8 @@
     <string name="settings_suspend_dialog_cancel">Cancel</string>
     <string name="settings_notify_title">Notify blocked calls</string>
     <string name="settings_notify_subtitle">Receive a notification every time a call is blocked</string>
+    <string name="settings_notify_whitelist_title">Notify whitelist calls</string>
+    <string name="settings_notify_whitelist_subtitle">Receive a notification when a whitelisted number calls you</string>
 
     <!-- Settings — Log retention -->
     <string name="settings_log_retention_title">Auto-clean log</string>
@@ -269,6 +271,8 @@
     <string name="notif_restore_error_title">Restore error</string>
     <string name="notif_channel_blocked_name">Blocked calls</string>
     <string name="notif_blocked_title">Blocked call</string>
+    <string name="notif_whitelist_call_title">Whitelist call incoming</string>
+    <string name="notif_whitelist_call_text">%1$s is calling</string>
     <string name="notif_retry_rule_title">Call allowed through</string>
     <string name="notif_retry_rule_text">%1$s called %2$d times in %3$d minutes and was allowed through.</string>
     <string name="notif_auto_backup_success_title">Auto backup completed</string>
@@ -384,4 +388,56 @@
     <string name="changelog_1_8_0_5">Export/import all app settings as a single JSON file for full backup and restore</string>
     <string name="changelog_1_8_0_6">Boot setting moved into Backup tab — settings are now organised more logically</string>
     <string name="changelog_1_8_0_8">Fixed: notification icon now uses correct alpha-mask format on all Android versions</string>
+    <string name="changelog_1_8_0_9">New opt-in notification when an incoming call matches a whitelisted number not in your contacts</string>
+
+    <!-- Settings — Whitelist tab -->
+    <string name="settings_tab_whitelist">Whitelist</string>
+    <string name="settings_whitelist_info">Categories let you group whitelist contacts (e.g. Family, Work, Couriers) and use them as targets in scheduling rules.</string>
+    <string name="settings_whitelist_empty">No categories yet.\nTap the button below to create one.</string>
+    <string name="settings_whitelist_add_category">Add category</string>
+
+    <!-- Category management (shared by Settings and Add/Edit contact screens) -->
+    <string name="add_contact_category_label">Category (optional)</string>
+    <string name="category_none">None</string>
+    <string name="category_create">Create category</string>
+    <string name="category_create_title">New category</string>
+    <string name="category_edit_title">Edit category</string>
+    <string name="category_name_label">Name *</string>
+    <string name="category_name_hint">E.g. Family, Work, Couriers…</string>
+    <string name="category_name_required">Name is required</string>
+    <string name="category_emoji_label">Emoji (optional)</string>
+    <string name="category_emoji_hint">E.g. 👨‍👩‍👧</string>
+    <string name="category_delete_title">Delete category?</string>
+    <string name="category_delete_body">"%1$s" will be deleted. Contacts in this category will not be removed — only the category assignment will be cleared.</string>
+
+    <!-- Messages -->
+    <string name="msg_category_added">Category added</string>
+    <string name="msg_category_updated">Category updated</string>
+    <string name="msg_category_deleted">"%1$s" deleted</string>
+
+    <!-- Contact list filter -->
+    <string name="contacts_filter_all">All</string>
+    <string name="contacts_filter_empty">No contacts in this category</string>
+
+    <!-- Schedule rule target -->
+    <string name="settings_schedule_target_label">Applies to</string>
+    <string name="settings_schedule_target_all">All calls</string>
+    <string name="settings_schedule_target_category">Category</string>
+    <string name="settings_schedule_target_contact">Contact</string>
+    <string name="settings_schedule_target_no_categories">No categories available. Create one in the Whitelist tab.</string>
+    <string name="settings_schedule_target_no_contacts">No whitelist contacts yet.</string>
+    <string name="settings_schedule_name_label">Rule name (optional)</string>
+    <string name="settings_schedule_name_placeholder">e.g. Night mode, Weekend…</string>
+
+    <!-- Common actions -->
+    <string name="common_delete">Delete</string>
+
+    <!-- Changelog v1.8.1 -->
+    <string name="changelog_1_8_1_1">Whitelist contacts can now be assigned to categories (e.g. Family, Work, Couriers)</string>
+    <string name="changelog_1_8_1_2">Categories can be created on the fly from the Add/Edit contact screen</string>
+    <string name="changelog_1_8_1_3">New Whitelist tab in Settings for managing categories</string>
+    <string name="changelog_1_8_1_4">Contact list can be filtered by category using chip filters</string>
+    <string name="changelog_1_8_1_5">Scheduling rules can now target a specific category or contact instead of the global toggle</string>
+    <string name="changelog_1_8_1_6">Scheduling rules can now have a custom name (e.g. "Night mode", "Weekend")</string>
 </resources>
+
