@@ -34,6 +34,7 @@ import com.amlet.callblocker.ui.components.ContactCard
  * @param onDeleteContact      Requests deletion of a contact after confirmation.
  * @param onAddContact         Navigates to the Add Contact screen.
  * @param onEditContact        Navigates to the Edit Contact screen.
+ * @param onCallContact        Opens the system dialer pre-filled with the contact's number.
  * @param onNavigateBack       Pops this screen.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +49,7 @@ fun ContactListScreen(
     onDeleteContact: (ContactEntity) -> Unit,
     onAddContact: () -> Unit,
     onEditContact: (ContactEntity) -> Unit,
+    onCallContact: (ContactEntity) -> Unit,
     onNavigateBack: () -> Unit
 ) {
     var contactToDelete by remember { mutableStateOf<ContactEntity?>(null) }
@@ -203,7 +205,8 @@ fun ContactListScreen(
                             contact = contact,
                             category = contact.categoryId?.let { categoryMap[it] },
                             onDelete = { contactToDelete = contact },
-                            onEdit = { onEditContact(contact) }
+                            onEdit = { onEditContact(contact) },
+                            onCall = { onCallContact(contact) }
                         )
                     }
                 }

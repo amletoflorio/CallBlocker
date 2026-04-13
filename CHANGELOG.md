@@ -4,7 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.8.1] - Latest
+## [v1.8.2] - Latest
+
+### New Features
+- Whitelist contacts now have a **call button** that opens the system dialer pre-filled with their number — useful for contacts saved only inside the app and not in the phone's address book
+
+---
+
+## [v1.8.1]
 
 ### New Features
 

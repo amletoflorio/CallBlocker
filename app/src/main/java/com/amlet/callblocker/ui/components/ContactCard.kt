@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.EditNote
+import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -29,13 +30,15 @@ import com.amlet.callblocker.util.PhoneUtils
  * @param category The [CategoryEntity] assigned to this contact, or null if uncategorised.
  * @param onDelete Called when the user taps the delete icon.
  * @param onEdit   Called when the user taps the edit icon.
+ * @param onCall   Called when the user taps the call icon; opens the system dialer.
  */
 @Composable
 fun ContactCard(
     contact: ContactEntity,
     category: CategoryEntity? = null,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onCall: () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -104,6 +107,15 @@ fun ContactCard(
                         )
                     }
                 }
+            }
+
+            // Call button
+            IconButton(onClick = onCall) {
+                Icon(
+                    Icons.Rounded.Phone,
+                    contentDescription = "Call ${contact.name}",
+                    tint = MaterialTheme.colorScheme.tertiary
+                )
             }
 
             // Edit button

@@ -1,5 +1,7 @@
 package com.amlet.callblocker.ui
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.produceState
@@ -131,6 +133,12 @@ fun AppNavigation(
                     onAddContact = { navController.navigate(Routes.ADD_CONTACT) },
                     onEditContact = { contact ->
                         navController.navigate(Routes.editContact(contact.id))
+                    },
+                    onCallContact = { contact ->
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:${contact.phoneNumber}")
+                        }
+                        context.startActivity(intent)
                     },
                     onNavigateBack = { navController.popBackStack() }
                 )

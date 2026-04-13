@@ -438,5 +438,6 @@
     <string name="changelog_1_8_1_4">La lista contatti può essere filtrata per categoria tramite chip di filtro</string>
     <string name="changelog_1_8_1_5">Le regole di pianificazione possono ora avere come target una categoria o un contatto specifico</string>
     <string name="changelog_1_8_1_6">Le regole di pianificazione possono ora avere un nome personalizzato (es. "Notte", "Fine settimana")</string>
+    <string name="changelog_1_8_2_1">I contatti in whitelist hanno ora un pulsante per chiamare che apre il dialer di sistema con il numero precompilato</string>
 </resources>
 

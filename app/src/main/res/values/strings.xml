@@ -439,5 +439,6 @@
     <string name="changelog_1_8_1_4">Contact list can be filtered by category using chip filters</string>
     <string name="changelog_1_8_1_5">Scheduling rules can now target a specific category or contact instead of the global toggle</string>
     <string name="changelog_1_8_1_6">Scheduling rules can now have a custom name (e.g. "Night mode", "Weekend")</string>
+    <string name="changelog_1_8_2_1">Whitelist contacts now have a call button that opens the system dialer with their number pre-filled</string>
 </resources>
 
