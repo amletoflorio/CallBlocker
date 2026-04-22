@@ -18,6 +18,13 @@ object ChangelogData {
     // Version history — add new entries at the TOP of the list.
     val entries = listOf(
         ChangelogEntry(
+            version = "1.8.3",
+            date = "2026-04-22",
+            changes = listOf(
+                ChangeItem(ChangeType.IMPROVE, com.amlet.callblocker.R.string.changelog_1_8_3_1),
+            )
+        ),
+        ChangelogEntry(
             version = "1.8.2",
             date = "2026-04-13",
             changes = listOf(
@@ -49,7 +56,7 @@ object ChangelogData {
                 ChangeItem(ChangeType.FIX,     com.amlet.callblocker.R.string.changelog_1_8_0_8),
             )
         ),
-                ChangelogEntry(
+        ChangelogEntry(
             version = "1.7.0",
             date = "2026-04-05",
             changes = listOf(

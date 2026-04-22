@@ -290,7 +290,7 @@
     <string name="date_format_time">HH:mm</string>
 
 
-<!-- v1.7.0 — Tab Schedule -->
+    <!-- v1.7.0 — Tab Schedule -->
     <string name="settings_tab_schedule">Pianificazione</string>
     <string name="settings_schedule_title">Pianificazione automatica</string>
     <string name="settings_schedule_subtitle">Attiva o disattiva il blocco in base a orari e giorni</string>
@@ -439,5 +439,5 @@
     <string name="changelog_1_8_1_5">Le regole di pianificazione possono ora avere come target una categoria o un contatto specifico</string>
     <string name="changelog_1_8_1_6">Le regole di pianificazione possono ora avere un nome personalizzato (es. "Notte", "Fine settimana")</string>
     <string name="changelog_1_8_2_1">I contatti in whitelist hanno ora un pulsante per chiamare che apre il dialer di sistema con il numero precompilato</string>
+    <string name="changelog_1_8_3_1">Toccare i contatori Contatti consentiti o Chiamate bloccate nella home porta direttamente alla schermata corrispondente</string>
 </resources>
-

@@ -4,6 +4,7 @@ import android.content.Context
 import android.telephony.SubscriptionManager
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
@@ -202,7 +203,12 @@ private fun PortraitHomeLayout(
         }
 
         Spacer(modifier = Modifier.height(12.dp))
-        StatsCard(contactCount = contactCount, blockedCount = blockedCount)
+        StatsCard(
+            contactCount = contactCount,
+            blockedCount = blockedCount,
+            onNavigateToContacts = onNavigateToContacts,
+            onNavigateToCallLog = onNavigateToCallLog
+        )
         Spacer(modifier = Modifier.height(20.dp))
 
         HomeButtons(
@@ -259,7 +265,12 @@ private fun LandscapeHomeLayout(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(8.dp))
-            StatsCard(contactCount = contactCount, blockedCount = blockedCount)
+            StatsCard(
+                contactCount = contactCount,
+                blockedCount = blockedCount,
+                onNavigateToContacts = onNavigateToContacts,
+                onNavigateToCallLog = onNavigateToCallLog
+            )
             HomeButtons(onNavigateToContacts = onNavigateToContacts, onNavigateToCallLog = onNavigateToCallLog)
             Spacer(Modifier.height(8.dp))
             HomeDisclaimer()
@@ -479,7 +490,12 @@ private fun ScheduleOverrideDialog(
 
 
 @Composable
-private fun StatsCard(contactCount: Int, blockedCount: Int) {
+private fun StatsCard(
+    contactCount: Int,
+    blockedCount: Int,
+    onNavigateToContacts: () -> Unit,
+    onNavigateToCallLog: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -492,7 +508,8 @@ private fun StatsCard(contactCount: Int, blockedCount: Int) {
             StatItem(
                 icon = Icons.Rounded.Shield,
                 label = stringResource(R.string.home_stat_contacts),
-                value = "$contactCount"
+                value = "$contactCount",
+                onClick = onNavigateToContacts
             )
             HorizontalDivider(
                 modifier = Modifier.height(48.dp).width(1.dp),
@@ -501,7 +518,8 @@ private fun StatsCard(contactCount: Int, blockedCount: Int) {
             StatItem(
                 icon = Icons.Rounded.Block,
                 label = stringResource(R.string.home_stat_blocked),
-                value = "$blockedCount"
+                value = "$blockedCount",
+                onClick = onNavigateToCallLog
             )
         }
     }
@@ -589,9 +607,16 @@ private fun SimProtectionBadge(protectedSim: String) {
 private fun StatItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
-    value: String
+    value: String,
+    onClick: () -> Unit
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
         Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(22.dp))
         Spacer(modifier = Modifier.height(6.dp))
         Text(text = value, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
