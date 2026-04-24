@@ -4,7 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ---
 
-## [v1.8.2] - Latest
+## [v1.8.4] - Latest
+
+### Bug Fixes
+- **Fix: call button on whitelist contacts sending country prefix to the dialer** — numbers stored with international prefix (e.g. `+39`, `390...`) were passed verbatim to `tel:`, causing the dialer to display the full prefix and fail to place the call. `PhoneUtils.formatForDialer()` now strips the country code for all common formats (`+XX`, `00XX`, and bare digits with recognized prefix) before building the `tel:` URI
+
+### Improvements
+- Snappier animations throughout the app: status color transition reduced from 600 ms to 200 ms, pulse ring animation from 1200 ms to 700 ms, toggle spring changed to `DampingRatioLowBouncy` for a more immediate response
+
+---
+
+## [v1.8.3]
+
+### Improvements
+- Tapping the **Allowed contacts** or **Blocked calls** counters on the Home screen now navigates directly to the corresponding screen
+
+---
+
+## [v1.8.2]
 
 ### New Features
 - Whitelist contacts now have a **call button** that opens the system dialer pre-filled with their number — useful for contacts saved only inside the app and not in the phone's address book

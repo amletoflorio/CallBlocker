@@ -440,4 +440,6 @@
     <string name="changelog_1_8_1_6">Le regole di pianificazione possono ora avere un nome personalizzato (es. "Notte", "Fine settimana")</string>
     <string name="changelog_1_8_2_1">I contatti in whitelist hanno ora un pulsante per chiamare che apre il dialer di sistema con il numero precompilato</string>
     <string name="changelog_1_8_3_1">Toccare i contatori Contatti consentiti o Chiamate bloccate nella home porta direttamente alla schermata corrispondente</string>
+    <string name="changelog_1_8_4_1">Corretto il pulsante chiamata sui contatti in whitelist che inviava il prefisso internazionale al dialer, impedendo l\'esecuzione della chiamata</string>
+    <string name="changelog_1_8_4_2">Animazioni più veloci e reattive in tutta l\'app</string>
 </resources>

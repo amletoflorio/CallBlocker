@@ -48,7 +48,7 @@ fun HomeScreen(
 
     val statusColor by animateColorAsState(
         targetValue = if (isServiceEnabled) Emerald500 else Slate400,
-        animationSpec = tween(600),
+        animationSpec = tween(200),
         label = "statusColor"
     )
 
@@ -333,7 +333,7 @@ private fun HomeToggleCircle(
         initialValue = 1f,
         targetValue = if (isServiceEnabled) 1.08f else 1f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = EaseInOutSine),
+            animation = tween(700, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
@@ -342,7 +342,7 @@ private fun HomeToggleCircle(
         initialValue = 0.5f,
         targetValue = if (isServiceEnabled) 0.15f else 0f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1200, easing = EaseInOutSine),
+            animation = tween(700, easing = EaseInOutSine),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseAlpha"
@@ -351,7 +351,7 @@ private fun HomeToggleCircle(
     // Toggle press scale
     val pressScale by animateFloatAsState(
         targetValue = 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy),
         label = "pressScale"
     )
 

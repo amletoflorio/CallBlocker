@@ -441,4 +441,6 @@
     <string name="changelog_1_8_1_6">Scheduling rules can now have a custom name (e.g. "Night mode", "Weekend")</string>
     <string name="changelog_1_8_2_1">Whitelist contacts now have a call button that opens the system dialer with their number pre-filled</string>
     <string name="changelog_1_8_3_1">Tapping the Allowed contacts or Blocked calls counters on the home screen now navigates directly to the corresponding screen</string>
+    <string name="changelog_1_8_4_1">Fixed call button on whitelist contacts sending the country prefix to the dialer, which prevented the call from being placed</string>
+    <string name="changelog_1_8_4_2">Snappier animations throughout the app for a more responsive feel</string>
 </resources>

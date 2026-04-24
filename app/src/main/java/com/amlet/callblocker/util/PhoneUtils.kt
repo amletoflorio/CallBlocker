@@ -18,6 +18,48 @@ object PhoneUtils {
     }
 
     /**
+     * Returns the local (national) number stripped of any international prefix,
+     * suitable for passing directly to the system dialer via `tel:`.
+     *
+     * Handles all common storage formats:
+     *   "+39 333 1234567"   → "3331234567"
+     *   "0039 333 1234567"  → "3331234567"
+     *   "390694807697"      → "0694807697"  (bare digits with IT prefix, no + or 00)
+     *   "+1 800 555 0199"   → "8005550199"
+     *   "0230612645"        → "0230612645"  (already local, returned as-is)
+     */
+    fun formatForDialer(number: String): String {
+        val digits = number.replace(Regex("[^0-9+]"), "")
+
+        // Normalise to E.164-like "+XX..." form so prefix detection is uniform.
+        // The bare-digits cases handle numbers stored without "+" or "00" (e.g. "390694807697").
+        val withPlus = when {
+            digits.startsWith("00") -> "+${digits.drop(2)}"
+            digits.startsWith("+")  -> digits
+            digits.startsWith("39") && digits.length >= 11 -> "+$digits"  // Italy
+            digits.startsWith("49") && digits.length >= 10 -> "+$digits"  // Germany
+            digits.startsWith("33") && digits.length >= 11 -> "+$digits"  // France
+            digits.startsWith("34") && digits.length >= 11 -> "+$digits"  // Spain
+            digits.startsWith("44") && digits.length >= 11 -> "+$digits"  // UK
+            digits.startsWith("1")  && digits.length == 11 -> "+$digits"  // USA/Canada
+            else                    -> return digits  // already local, nothing to strip
+        }
+
+        return when {
+            withPlus.startsWith("+39") -> withPlus.drop(3)   // Italy
+            withPlus.startsWith("+49") -> withPlus.drop(3)   // Germany
+            withPlus.startsWith("+33") -> withPlus.drop(3)   // France
+            withPlus.startsWith("+34") -> withPlus.drop(3)   // Spain
+            withPlus.startsWith("+1")  -> withPlus.drop(2)   // USA/Canada
+            withPlus.startsWith("+44") -> withPlus.drop(3)   // UK
+            withPlus.startsWith("+")   -> withPlus.drop(
+                if (withPlus.length > 4 && withPlus[3].isDigit()) 4 else 3
+            )
+            else -> digits
+        }
+    }
+
+    /**
      * Formats a number for display, recognising the most common international
      * prefixes (IT, DE, FR, ES, US/CA, UK, etc.).
      *

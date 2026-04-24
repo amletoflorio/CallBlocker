@@ -13,6 +13,7 @@ import androidx.navigation.compose.rememberNavController
 import com.amlet.callblocker.data.prefs.AppPreferences
 import com.amlet.callblocker.ui.screens.*
 import com.amlet.callblocker.ui.viewmodel.ContactViewModel
+import com.amlet.callblocker.util.PhoneUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -135,8 +136,9 @@ fun AppNavigation(
                         navController.navigate(Routes.editContact(contact.id))
                     },
                     onCallContact = { contact ->
+                        val localNumber = PhoneUtils.formatForDialer(contact.phoneNumber)
                         val intent = Intent(Intent.ACTION_DIAL).apply {
-                            data = Uri.parse("tel:${contact.phoneNumber}")
+                            data = Uri.parse("tel:$localNumber")
                         }
                         context.startActivity(intent)
                     },
